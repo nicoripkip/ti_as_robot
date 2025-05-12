@@ -1,0 +1,5 @@
+#ifndef TI_AS_MAGNETOSENSOR_HPP
+#define TI_AS_MAGNETOSENSOR_HPP
+
+
+#endif
