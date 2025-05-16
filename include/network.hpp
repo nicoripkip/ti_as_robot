@@ -2,4 +2,7 @@
 #define TI_AS_NETWORK_HPP
 
 
+void network_task(void *param);
+
+
 #endif
