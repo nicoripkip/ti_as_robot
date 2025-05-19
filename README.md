@@ -4,6 +4,12 @@
 
 This robot is a member of a bigger swarm of antdroid and is created for the course TINLAB Autonomous Systems at the Rotterdam University of Applied Sciences. 
 
+
+## Schematics
+
+The schematics can be found under a folder called designs. The Schematics consists of a Fusion360 file with the chassis and an electrical schematic for the PCB. It also contains a gerber file for the PCB.
+
+
 ## Dependencies
 
 - <a href="https://registry.platformio.org/libraries/knolleary/PubSubClient">PubSubClient</a>
@@ -34,11 +40,24 @@ cd ti_as_robot
 ```
 
 3. Modify the config file under the following folder and make to fill in the correct configuration options.
-```txt
+```bash
 /include/config.hpp
 ```
 
-4. 
+4. Check if settings in platformio.ini are correct.
+```bash
+/platformio.ini
+```
+
+5. Compile the project with platformio
+``` Bash
+pio
+```
+
+6. Flash the project onto the desired ESP32
+```bash
+pio
+```
 
 ## Author
 

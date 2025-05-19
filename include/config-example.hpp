@@ -10,6 +10,7 @@
  * 
  */
 const char DEVICE_NAME[]                = "robot_xxxx";
+const uint32_t DEVICE_BAUD_RATE         = 115200;
 
 
 /**

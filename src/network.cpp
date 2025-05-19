@@ -5,6 +5,7 @@
 #include <time.h>
 #include "config.hpp"
 #include "PubSubClient.h"
+#include "buffers.hpp"
 
 
 // Static globals needed for this file
@@ -81,6 +82,7 @@ void init_mqtt()
 {
     mqtt_connected = false;
 
+    // Set basic settings of mqtt
     mqtt_client.setClient(wifi_client);
     mqtt_client.setServer(MQTT_SERVER, MQTT_PORT);
     mqtt_client.setCallback(mqtt_callback);
@@ -95,6 +97,9 @@ void init_mqtt()
     // Subscribe to the rx channels
     mqtt_client.subscribe("/ti/as/hmi2robot");
     mqtt_client.subscribe("/ti/as/hypervisor2robot");
+
+    // Setup MQTT buffer
+    mqtt_data_queue = xQueueCreate(10, sizeof(char) * 100);
 }
 
 
@@ -110,6 +115,16 @@ void network_task(void *param)
 
     while (true) {
         if (mqtt_connected) {
+            char message[100];
+            memset(message, 0, 100);
+
+            // Process of sending data 
+            if (uxQueueMessagesWaiting(mqtt_data_queue) > 0) {
+                xQueueReceive(mqtt_data_queue, &message, portMAX_DELAY);
+
+                mqtt_client.publish("/ti/as/robot2hmi", message);
+            }
+
             // Make sure client is always looped
             mqtt_client.loop();
         }

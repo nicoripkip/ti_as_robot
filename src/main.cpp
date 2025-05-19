@@ -4,11 +4,15 @@
 #include "network.hpp"
 #include "bluetooth.hpp"
 #include <WiFi.h>
+#include "colorsensor.hpp"
+#include "tofsensor.hpp"
 
 
 TaskHandle_t motor_task_ptr;
 TaskHandle_t network_task_ptr;
 TaskHandle_t bluetooth_task_ptr;
+TaskHandle_t tof_sensor_task_ptr;
+TaskHandle_t color_sensor_task_ptr;
 
 
 /**
@@ -24,6 +28,8 @@ void setup()
   xTaskCreatePinnedToCore(motor_task, "Motor Task", MIN_TASK_STACK_SIZE, NULL, 1, &motor_task_ptr, 1);
   xTaskCreatePinnedToCore(network_task, "Network Task", MIN_TASK_STACK_SIZE, NULL, 1, &network_task_ptr, 1);
   xTaskCreatePinnedToCore(bluetooth_task, "Bluetooth Task", MIN_TASK_STACK_SIZE, NULL, 1, &bluetooth_task_ptr, 1);
+  xTaskCreatePinnedToCore(tof_sensor_task, "TOF Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &tof_sensor_task_ptr, 1);
+  xTaskCreatePinnedToCore(color_sensor_task, "Color Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &color_sensor_task_ptr, 1);
 
   // Start scheduler
   vTaskStartScheduler();
