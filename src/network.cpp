@@ -22,7 +22,11 @@ bool            mqtt_connected;
  */
 void mqtt_callback(const char* topic, byte* payload, unsigned int length)
 {
-
+    if (strcmp(topic, "/ti/as/hmi2robot") == 0) {
+        Serial.println("Message received from hmi!");
+    } else if (strcmp(topic, "/ti/as/hypervisor2robot") == 0) {
+        Serial.println("Message received from hypervisor!");
+    }
 }
 
 
@@ -87,6 +91,10 @@ void init_mqtt()
 
     if (mqtt_connected) Serial.println("Succesfully connected to mqtt server");
     else Serial.println("Failed to connect to mqtt server!");
+
+    // Subscribe to the rx channels
+    mqtt_client.subscribe("/ti/as/hmi2robot");
+    mqtt_client.subscribe("/ti/as/hypervisor2robot");
 }
 
 
@@ -102,7 +110,8 @@ void network_task(void *param)
 
     while (true) {
         if (mqtt_connected) {
-
+            // Make sure client is always looped
+            mqtt_client.loop();
         }
     }
 }
