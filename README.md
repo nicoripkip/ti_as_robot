@@ -39,9 +39,9 @@ git clone
 cd ti_as_robot
 ```
 
-3. Modify the config file under the following folder and make to fill in the correct configuration options.
+3. Create a config file by changing the example config file into the config file. Modify the settings in the config file to your personal settings. This step is mandatory otherwise the project will not compile.
 ```bash
-/include/config.hpp
+cp ./include/config-example.hpp > ./include/config.hpp
 ```
 
 4. Check if settings in platformio.ini are correct.

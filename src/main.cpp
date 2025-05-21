@@ -13,6 +13,7 @@ TaskHandle_t network_task_ptr;
 TaskHandle_t bluetooth_task_ptr;
 TaskHandle_t tof_sensor_task_ptr;
 TaskHandle_t color_sensor_task_ptr;
+TaskHandle_t magneto_sensor_task_ptr;
 
 
 /**
@@ -32,7 +33,7 @@ void setup()
   xTaskCreatePinnedToCore(color_sensor_task, "Color Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &color_sensor_task_ptr, 1);
 
   // Start scheduler
-  vTaskStartScheduler();
+  // vTaskStartScheduler();
 }
 
 
@@ -44,4 +45,6 @@ void loop()
 {
   Serial.println("Dit print elke 3 seconde!");
   delay(3000);
+
+  // TODO: process all incoming data from the different sensors
 }

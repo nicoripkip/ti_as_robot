@@ -6,10 +6,8 @@
 
 
 extern QueueHandle_t color_sensor_queue;
-extern SemaphoreHandle_t color_sensor_queue_semaphore;
-
 extern QueueHandle_t mqtt_data_queue;
-extern SemaphoreHandle_t mqtt_data_queue_semaphore;
+extern QueueHandle_t tof_sensor_data_queue;
 
 
 #endif

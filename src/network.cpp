@@ -35,17 +35,17 @@ void mqtt_callback(const char* topic, byte* payload, unsigned int length)
  * @brief Function to detect the macaddress of the ESP32
  * 
  */
-void read_mac_address(){
-    uint8_t baseMac[6];
+// void read_mac_address(){
+//     uint8_t baseMac[6];
     
-    // Get MAC address of the WiFi station interface
-    esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
-    Serial.print("Station MAC: ");
-    for (int i = 0; i < 5; i++) {
-      Serial.printf("%02X:", baseMac[i]);
-    }
-    Serial.printf("%02X\n", baseMac[5]);
-}
+//     // Get MAC address of the WiFi station interface
+//     esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+//     Serial.print("Station MAC: ");
+//     for (int i = 0; i < 5; i++) {
+//       Serial.printf("%02X:", baseMac[i]);
+//     }
+//     Serial.printf("%02X\n", baseMac[5]);
+// }
 
 
 /**
@@ -58,12 +58,9 @@ void init_Wifi()
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-    // Sync time with the time server
-    Serial.println("Trying to sync time!");
-    configTime(0, (3600 * 2), "ntppool1.time.nl", "ntppool2.time.nl");
-
     Serial.print("Wifi is trying to connect to the network: ");
 
+    // Try to connect to the network
     while (WiFi.status() != WL_CONNECTED) {
         Serial.print(".");
         delay(500);
@@ -71,6 +68,10 @@ void init_Wifi()
 
     Serial.println("");
     Serial.println("Wifi connected to network!");
+
+    // Sync time with the time server
+    Serial.println("Trying to sync time!");
+    configTime(0, (3600 * 2), "ntppool1.time.nl", "ntppool2.time.nl");
 }
 
 

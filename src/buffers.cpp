@@ -3,16 +3,9 @@
 
 
 /**
- * @brief Register all semaphores for the buffers
+ * @brief Register all queues for the buffers
  * 
  */
 QueueHandle_t color_sensor_queue;
 QueueHandle_t mqtt_data_queue;
-
-
-/**
- * @brief Register all interprocessor buffers
- * 
- */
-SemaphoreHandle_t color_sensor_queue_semaphore;
-SemaphoreHandle_t mqtt_data_queue_semaphore;
+QueueHandle_t tof_sensor_data_queue;
