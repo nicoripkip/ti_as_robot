@@ -33,6 +33,8 @@ typedef struct {
     bool                    turning;
     bool                    reset;
     bool                    sleep;
+
+    SemaphoreHandle_t       semaphore;
 } motor_data_t;
 
 

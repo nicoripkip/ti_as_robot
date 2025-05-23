@@ -6,12 +6,14 @@
 #include "config.hpp"
 #include "PubSubClient.h"
 #include "buffers.hpp"
+#include <esp_wifi.h>
 
 
 // Static globals needed for this file
 WiFiClient      wifi_client;
 PubSubClient    mqtt_client;
 bool            mqtt_connected;
+bool            wifi_connected;
 
 
 /**
@@ -35,17 +37,17 @@ void mqtt_callback(const char* topic, byte* payload, unsigned int length)
  * @brief Function to detect the macaddress of the ESP32
  * 
  */
-// void read_mac_address(){
-//     uint8_t baseMac[6];
+void read_mac_address(){
+    uint8_t baseMac[6];
     
-//     // Get MAC address of the WiFi station interface
-//     esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
-//     Serial.print("Station MAC: ");
-//     for (int i = 0; i < 5; i++) {
-//       Serial.printf("%02X:", baseMac[i]);
-//     }
-//     Serial.printf("%02X\n", baseMac[5]);
-// }
+    // Get MAC address of the WiFi station interface
+    esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+    Serial.print("Station MAC: ");
+    for (int i = 0; i < 5; i++) {
+      Serial.printf("%02X:", baseMac[i]);
+    }
+    Serial.printf("%02X\n", baseMac[5]);
+}
 
 
 /**
@@ -54,20 +56,33 @@ void mqtt_callback(const char* topic, byte* payload, unsigned int length)
  */
 void init_Wifi() 
 {
+    read_mac_address();
+    wifi_connected = false;
+
     // Before the loop can start, it is required that a stable network connection is needed!
+    // WiFi.setMinSecurity(WIFI_AUTH_WEP); 
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
     Serial.print("Wifi is trying to connect to the network: ");
 
     // Try to connect to the network
+    uint8_t counter = 0;
     while (WiFi.status() != WL_CONNECTED) {
         Serial.print(".");
+        counter++;
         delay(500);
+
+        if (counter >= 100) return;
     }
 
     Serial.println("");
     Serial.println("Wifi connected to network!");
+
+    wifi_connected = true;
+
+    // Turn energy down of the wifi
+    // esp_wifi_set_max_tx_power(20);
 
     // Sync time with the time server
     Serial.println("Trying to sync time!");
@@ -99,8 +114,9 @@ void init_mqtt()
     mqtt_client.subscribe("/ti/as/hmi2robot");
     mqtt_client.subscribe("/ti/as/hypervisor2robot");
 
-    // Setup MQTT buffer
-    mqtt_data_queue = xQueueCreate(10, sizeof(char) * 100);
+    // Setup MQTT buffers
+    mqtt_data_queue = xQueueCreate(10, sizeof(char) * 256);
+    logger_queue = xQueueCreate(100, sizeof(char) * 256);
 }
 
 
@@ -112,12 +128,12 @@ void init_mqtt()
 void network_task(void *param)
 { 
     init_Wifi();
-    init_mqtt();
+    if (wifi_connected) init_mqtt();
 
     while (true) {
-        if (mqtt_connected) {
-            char message[100];
-            memset(message, 0, 100);
+        if (wifi_connected && mqtt_connected) {
+            char message[256];
+            memset(message, 0, 256);
 
             // Process of sending data 
             if (uxQueueMessagesWaiting(mqtt_data_queue) > 0) {
