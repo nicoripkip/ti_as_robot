@@ -54,22 +54,22 @@ void loop()
 
   color_data_t color_sensor_data;
 
-  if (uxQueueMessagesWaiting(color_sensor_queue) > 0) {
-    // TODO: process all incoming data from the different sensors
-    xQueueReceive(color_sensor_queue, &color_sensor_data, portMAX_DELAY);
+  // if (uxQueueMessagesWaiting(color_sensor_queue) > 0) {
+  //   // TODO: process all incoming data from the different sensors
+  //   xQueueReceive(color_sensor_queue, &color_sensor_data, portMAX_DELAY);
 
-    Serial.print("R: ");
-    Serial.print(color_sensor_data.rgb[0]);
-    Serial.print(", G: ");
-    Serial.print(color_sensor_data.rgb[1]);
-    Serial.print(", B: ");
-    Serial.println(color_sensor_data.rgb[2]);
+  //   Serial.print("R: ");
+  //   Serial.print(color_sensor_data.rgb[0]);
+  //   Serial.print(", G: ");
+  //   Serial.print(color_sensor_data.rgb[1]);
+  //   Serial.print(", B: ");
+  //   Serial.println(color_sensor_data.rgb[2]);
 
-    char buffer[256];
-    memset(buffer, 0, 256);
+  //   char buffer[256];
+  //   memset(buffer, 0, 256);
 
-    snprintf(buffer, 256, "{ \"des\": \"robot2hmi\", \"r\": %d, \"g\": %d, \"b\": %d }");
+  //   snprintf(buffer, 256, "{ \"des\": \"robot2hmi\", \"r\": %d, \"g\": %d, \"b\": %d }");
 
-    xQueueSend(mqtt_data_queue, &buffer, portMAX_DELAY);
-  }
+  //   xQueueSend(mqtt_data_queue, &buffer, portMAX_DELAY);
+  // }
 }
