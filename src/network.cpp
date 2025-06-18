@@ -25,9 +25,9 @@ bool            wifi_connected;
  */
 void mqtt_callback(const char* topic, byte* payload, unsigned int length)
 {
-    if (strcmp(topic, "/ti/as/hmi2robot") == 0) {
+    if (strcmp(topic, "/hmi2robot") == 0) {
         Serial.println("Message received from hmi!");
-    } else if (strcmp(topic, "/ti/as/hypervisor2robot") == 0) {
+    } else if (strcmp(topic, "/hypervisor2robot") == 0) {
         Serial.println("Message received from hypervisor!");
     }
 }

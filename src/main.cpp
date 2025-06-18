@@ -4,7 +4,7 @@
 #include "network.hpp"
 #include "bluetooth.hpp"
 #include <WiFi.h>
-#include "colorsensor.hpp"
+#include "camerasensor.hpp"
 #include "tofsensor.hpp"
 #include <Wire.h>
 #include "buffers.hpp"
@@ -14,7 +14,7 @@ TaskHandle_t motor_task_ptr;
 TaskHandle_t network_task_ptr;
 TaskHandle_t bluetooth_task_ptr;
 TaskHandle_t tof_sensor_task_ptr;
-TaskHandle_t color_sensor_task_ptr;
+TaskHandle_t camera_sensor_task_ptr;
 TaskHandle_t magneto_sensor_task_ptr;
 
 
@@ -36,7 +36,7 @@ void setup()
   xTaskCreatePinnedToCore(network_task, "Network Task", MIN_TASK_STACK_SIZE, NULL, 1, &network_task_ptr, 1);
   xTaskCreatePinnedToCore(bluetooth_task, "Bluetooth Task", MIN_TASK_STACK_SIZE, NULL, 1, &bluetooth_task_ptr, 1);
   xTaskCreatePinnedToCore(tof_sensor_task, "TOF Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &tof_sensor_task_ptr, 1);
-  xTaskCreatePinnedToCore(color_sensor_task, "Color Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &color_sensor_task_ptr, 1);
+  xTaskCreatePinnedToCore(camera_sensor_task, "Camera Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &camera_sensor_task_ptr, 1);
 
   // Start scheduler
   // vTaskStartScheduler();
@@ -52,24 +52,14 @@ void loop()
   // Serial.println("Dit print elke 3 seconde!");
   delay(1000);
 
-  color_data_t color_sensor_data;
+  if (mqtt_data_queue != nullptr) {
+    char buffer[256];
+    memset(buffer, 0, 256);
 
-  // if (uxQueueMessagesWaiting(color_sensor_queue) > 0) {
-  //   // TODO: process all incoming data from the different sensors
-  //   xQueueReceive(color_sensor_queue, &color_sensor_data, portMAX_DELAY);
+    //snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%d, %d], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d } }");
+    snprintf(buffer, 256, "haaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
-  //   Serial.print("R: ");
-  //   Serial.print(color_sensor_data.rgb[0]);
-  //   Serial.print(", G: ");
-  //   Serial.print(color_sensor_data.rgb[1]);
-  //   Serial.print(", B: ");
-  //   Serial.println(color_sensor_data.rgb[2]);
 
-  //   char buffer[256];
-  //   memset(buffer, 0, 256);
-
-  //   snprintf(buffer, 256, "{ \"des\": \"robot2hmi\", \"r\": %d, \"g\": %d, \"b\": %d }");
-
-  //   xQueueSend(mqtt_data_queue, &buffer, portMAX_DELAY);
-  // }
+    xQueueSend(mqtt_data_queue, buffer, portMAX_DELAY);
+  }
 }

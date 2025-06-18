@@ -17,6 +17,10 @@ typedef enum {
 } microstep_conf_t;
 
 
+/**
+ * @brief Struct for handling all the motor data
+ * 
+ */
 typedef struct {
     char                    motor_name[12];
 
@@ -26,14 +30,24 @@ typedef struct {
     bool                    microstepping_enabled;
     microstep_conf_t        conf;
 
-    // States of the motor
-    bool                    forward;
-    bool                    backward;
-    bool                    running;
-    bool                    turning;
-    bool                    reset;
-    bool                    sleep;
+    // States of the motor inputs
+    bool                    i_forward;
+    bool                    i_backward;
+    bool                    i_turn_left;
+    bool                    i_turn_right;
+    bool                    i_reset;
+    bool                    i_sleep;
+    bool                    i_run;
 
+    // States voor de motor outputs
+    bool                    o_forward;
+    bool                    o_backward;
+    bool                    o_running;
+    bool                    o_turning;
+    bool                    o_reset;
+    bool                    o_sleep;
+
+    // Handle synchronization across threads
     SemaphoreHandle_t       semaphore;
 } motor_data_t;
 
