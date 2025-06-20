@@ -67,12 +67,16 @@ void motor_task(void *param)
     digitalWrite(MOTOR_RIGHT_SLEEP_PIN, HIGH);
 
 
+    // Set direction pin
+    digitalWrite(MOTOR_LEFT_DIRECTION_PIN, LOW);
+    digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, HIGH);
+
     while (true) {
         // Serial.println("Motortje draait!");
-        delayMicroseconds(1000);
+        delayMicroseconds(500);
         digitalWrite(MOTOR_LEFT_STEP_PIN, HIGH);
         digitalWrite(MOTOR_RIGHT_STEP_PIN, HIGH);
-        delayMicroseconds(1000);
+        delayMicroseconds(500);
         digitalWrite(MOTOR_LEFT_STEP_PIN, LOW);
         digitalWrite(MOTOR_RIGHT_STEP_PIN, LOW);
     }

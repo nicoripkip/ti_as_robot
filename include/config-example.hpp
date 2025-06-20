@@ -44,28 +44,37 @@ const int MQTT_PORT                     = 1883;
  * @brief I/O configuration
  * 
  */
-const uint8_t MOTOR_LEFT_STEP_PIN       = 0;
-const uint8_t MOTOR_LEFT_DIRECTION_PIN  = 0;
-const uint8_t MOTOR_LEFT_SLEEP_PIN      = 0;
-const uint8_t MOTOR_LEFT_RESET_PIN      = 0;
+const uint8_t MOTOR_LEFT_STEP_PIN           = 5;
+const uint8_t MOTOR_LEFT_DIRECTION_PIN      = 6;
+const uint8_t MOTOR_LEFT_SLEEP_PIN          = 4;
+const uint8_t MOTOR_LEFT_RESET_PIN          = 0;
 
-const uint8_t MOTOR_RIGHT_STEP_PIN      = 0;
-const uint8_t MOTOR_RIGHT_DIRECTION_PIN = 0;
-const uint8_t MOTOR_RIGHT_SLEEP_PIN     = 0;
-const uint8_t MOTOR_RIGHT_RESET_PIN     = 0;
+const uint8_t MOTOR_RIGHT_STEP_PIN          = 16;
+const uint8_t MOTOR_RIGHT_DIRECTION_PIN     = 17;
+const uint8_t MOTOR_RIGHT_SLEEP_PIN         = 15;
+const uint8_t MOTOR_RIGHT_RESET_PIN         = 0;
 
-const bool ENABLE_I2C_BUS_1             = true;
-const uint8_t I2C_BUS_1_SDA_PIN         = 4;
-const uint8_t I2C_SDL_1_SCL_PIN         = 5;
+const bool ENABLE_I2C_BUS_1                 = true;
+const uint8_t I2C_BUS_1_SDA_PIN             = 4;
+const uint8_t I2C_SDL_1_SCL_PIN             = 5;
 
-const bool ENABLE_I2C_BUS_2             = false;
-const uint8_t I2C_BUS_2_SDA_PIN         = 0;
-const uint8_t I2C_BUS_2_SDL_PIN         = 0;
+const bool ENABLE_I2C_BUS_2                 = false;
+const uint8_t I2C_BUS_2_SDA_PIN             = 0;
+const uint8_t I2C_BUS_2_SDL_PIN             = 0;
 
-const uint8_t COLOR_SENSOR_LED_PIN      = 0;
+const uint16_t TOF_SENSOR_ADDRESS           = 0x52;
+const uint16_t MAGNETO_SENSOR_ADDRESS       = 0;
+const uint16_t OLED_DISPLAY_ADDRESS         = 0;
 
-const uint8_t tof_sensor_pins[]         = {};
-const uint8_t magneto_sensor_pins[]     = {};
+const uint32_t CAMERA_UART_BAUD_RATE        = 4000000;
+const uint8_t CAMERA_UART_RX_PIN            = 10;
+const uint8_t CAMERA_UART_TX_PIN            = 9;
+const uint32_t CAMERA_BUFFER_IMAGE_SIZE     = 15000;
+
+const uint8_t SERVO_TOF_SENSOR_PWM_PIN      = 11;
+const uint8_t SERVO_TOF_SENSOR_PWM_CHANNEL  = 0;
+const uint16_t SERVO_TOF_SENSOR_PWM_FREQ    = 50;
+const uint16_t SERVO_TOF_SENSOR_PWM_RES     = 16;
 
 
 /**
