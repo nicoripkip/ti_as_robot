@@ -13,7 +13,7 @@ struct SensorData {
 struct SlamMapData {
     uint16_t x_coord;
     uint16_t y_coord;
-    float distance;
+    bool occupied;
 };
 
 
