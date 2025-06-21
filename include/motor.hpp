@@ -40,12 +40,12 @@ typedef struct {
     bool                    i_run;
 
     // States voor de motor outputs
-    bool                    o_forward;
-    bool                    o_backward;
-    bool                    o_running;
-    bool                    o_turning;
-    bool                    o_reset;
-    bool                    o_sleep;
+    volatile bool           o_forward;
+    volatile bool           o_backward;
+    volatile bool           o_running;
+    volatile bool           o_turning;
+    volatile bool           o_reset;
+    volatile bool           o_sleep;
 
     // Handle synchronization across threads
     SemaphoreHandle_t       semaphore;

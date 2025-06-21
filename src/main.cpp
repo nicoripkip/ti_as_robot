@@ -8,6 +8,8 @@
 #include "tofsensor.hpp"
 #include <Wire.h>
 #include "buffers.hpp"
+#include "slam.hpp"
+#include "i2chandler.hpp"
 
 
 TaskHandle_t motor_task_ptr;
@@ -28,8 +30,11 @@ void setup()
   if (ENABLE_DEBUGGING) Serial.begin(DEVICE_BAUD_RATE);
 
   // Enable pins as i2c pins
-  if (ENABLE_I2C_BUS_1) Wire.begin(I2C_BUS_1_SDA_PIN, I2C_SDL_1_SCL_PIN);
-  if (ENABLE_I2C_BUS_2) Wire1.begin(I2C_BUS_2_SDA_PIN, I2C_BUS_2_SDL_PIN);
+  if (ENABLE_I2C_BUS_1) i2c_init(1, I2C_BUS_1_SDA_PIN, I2C_SDL_1_SCL_PIN);
+  if (ENABLE_I2C_BUS_2) i2c_init(2, I2C_BUS_2_SDA_PIN, I2C_BUS_2_SDL_PIN);
+
+  // Init slam
+  // init_map();
 
   // Register all tasks needed for the bot to work
   xTaskCreatePinnedToCore(motor_task, "Motor Task", MIN_TASK_STACK_SIZE, NULL, 1, &motor_task_ptr, 1);
@@ -40,6 +45,9 @@ void setup()
 
   // Start scheduler
   // vTaskStartScheduler();
+
+  // motor1_data.i_run = true;
+  // motor2_data.i_run = true;
 }
 
 

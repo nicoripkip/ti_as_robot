@@ -2,6 +2,15 @@
 #define TI_AS_TOFSENSOR_HPP
 
 
+#include <cstdint>
+
+
+struct TOFSensorData {
+    uint16_t    degree;                        // Value for which corner the servo ha turned
+    float       distance;                      // The distance measured by the tof sensor
+};
+
+
 void tof_sensor_task(void* param);
 
 

@@ -4,6 +4,30 @@
 #include "buffers.hpp"
 
 
+hw_timer_t* timer;
+volatile bool step_state = false;
+
+
+/**
+ * @brief Interrupt method to perform a step to move the stepper motors
+ * 
+ */
+void IRAM_ATTR move_motor() 
+{
+    if (motor1_data.o_running && motor2_data.o_running) {
+        if (step_state) {
+            digitalWrite(MOTOR_LEFT_STEP_PIN, HIGH);
+            digitalWrite(MOTOR_RIGHT_STEP_PIN, HIGH);
+        } else {
+            digitalWrite(MOTOR_LEFT_STEP_PIN, LOW);
+            digitalWrite(MOTOR_RIGHT_STEP_PIN, LOW);
+        }
+    }
+
+    step_state = !step_state;
+}
+
+
 /**
  * @brief Internal function for initializing data into the motor data structs
  * 
@@ -66,18 +90,34 @@ void motor_task(void *param)
     digitalWrite(MOTOR_LEFT_SLEEP_PIN, HIGH);
     digitalWrite(MOTOR_RIGHT_SLEEP_PIN, HIGH);
 
-
     // Set direction pin
-    digitalWrite(MOTOR_LEFT_DIRECTION_PIN, LOW);
+    digitalWrite(MOTOR_LEFT_DIRECTION_PIN, HIGH);
     digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, HIGH);
 
+    // init timer
+    timer = timerBegin(0, 80, true);
+
+    timerAttachInterrupt(timer, &move_motor, true);
+    timerAlarmWrite(timer, 1000, true);
+    timerAlarmEnable(timer);
+
+    // This while loop will controll all the motor stages
     while (true) {
-        // Serial.println("Motortje draait!");
-        delayMicroseconds(500);
-        digitalWrite(MOTOR_LEFT_STEP_PIN, HIGH);
-        digitalWrite(MOTOR_RIGHT_STEP_PIN, HIGH);
-        delayMicroseconds(500);
-        digitalWrite(MOTOR_LEFT_STEP_PIN, LOW);
-        digitalWrite(MOTOR_RIGHT_STEP_PIN, LOW);
+        if (motor1_data.i_run && motor2_data.i_run) {
+            motor1_data.o_running = true;
+            motor2_data.o_running = true;
+
+            if (motor1_data.i_forward && !motor1_data.i_backward) {
+                motor1_data.o_forward = true;
+            } else {
+                motor1_data.o_forward = false;
+            }
+
+            if (motor2_data.i_forward && !motor2_data.i_backward) {
+                motor2_data.o_forward = true;
+            } else {
+                motor2_data.o_forward = false;
+            }
+        }
     }
 }

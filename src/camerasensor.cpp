@@ -27,31 +27,29 @@ void camera_sensor_task(void* param)
         ESP_CAM_SERIAL.write('C');
 
         // Try to read received data from camera
-        if (ESP_CAM_SERIAL.available()) {
-            // Read data from the camera
-            if (ESP_CAM_SERIAL.read() == 0xA5 && ESP_CAM_SERIAL.read() == 0x54) {
-                // Reset buffer
-                memset(buffer, 0, CAMERA_BUFFER_IMAGE_SIZE);
+        while (ESP_CAM_SERIAL.available() < 4);
 
-                uint16_t len;
-                ESP_CAM_SERIAL.readBytes((char *)&len, 2);
-                
-                // Receive data from the image
-                ESP_CAM_SERIAL.readBytes((char *)buffer, CAMERA_BUFFER_IMAGE_SIZE);
+        // Read data from the camera
+        if (ESP_CAM_SERIAL.read() == 0xA5 && ESP_CAM_SERIAL.read() == 0x5A) {
+            // Reset buffer
+            memset(buffer, 0, CAMERA_BUFFER_IMAGE_SIZE);
 
-                Serial.print("Size of received image: ");
-                Serial.println(len);   
-            } else {
-                Serial.println("[error] Not the correct header!");
-                while (ESP_CAM_SERIAL.available()) {
-                    uint8_t c = ESP_CAM_SERIAL.read();
-                    Serial.print("bytes: ");
-                    Serial.println(c, HEX);
-                } 
-            }
-        };
+            uint16_t len;
+            ESP_CAM_SERIAL.readBytes((char *)&len, 2);
+            
+            // Receive data from the image
+            ESP_CAM_SERIAL.readBytes((char *)buffer, CAMERA_BUFFER_IMAGE_SIZE);
 
-
+            Serial.print("Size of received image: ");
+            Serial.println(len);   
+        } else {
+            Serial.println("[error] Not the correct header!");
+            while (ESP_CAM_SERIAL.available()) {
+                uint8_t c = ESP_CAM_SERIAL.read();
+                Serial.print("bytes: ");
+                Serial.println(c, HEX);
+            } 
+        }
 
         delay(100);
     }
