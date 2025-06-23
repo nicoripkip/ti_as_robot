@@ -52,6 +52,9 @@ void tof_sensor_task(void* param)
     // Reset servo on midpoint
     ledcWrite(SERVO_TOF_SENSOR_PWM_CHANNEL, turn_servo(tellen));
     // Init the TOF sensor
+    bool err = false;
+    while (!err) err = i2c_take_semaphore(1);
+
     if (!vl53.begin(TOF_SENSOR_ADDRESS, &Wire)) {
         Serial.println("Failed to intialize the sensor!");
     }
@@ -67,18 +70,22 @@ void tof_sensor_task(void* param)
     Serial.print(F("Timing budget (ms): "));
     Serial.println(vl53.getTimingBudget());
 
+    i2c_give_semaphore(1);
+
     // Setup buffers
     tof_sensor_data_queue = xQueueCreate(10, sizeof(struct TOFSensorData));
 
     while (true) {
-        // Serial.print("Distance: ");
-        // Serial.println(lox.readRangeContinuousMillimeters());
-
         struct TOFSensorData tof_data;
+        bool err;
+
+        err = i2c_take_semaphore(1);
+        if (!err) continue; 
 
         tof_data.distance = vl53.distance();
         tof_data.degree = tellen;
 
+        i2c_give_semaphore(1);
 
         if (tof_data.distance == -1) {
             // something went wrong!

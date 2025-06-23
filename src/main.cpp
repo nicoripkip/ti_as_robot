@@ -10,6 +10,7 @@
 #include "buffers.hpp"
 #include "slam.hpp"
 #include "i2chandler.hpp"
+#include "magnetosensor.hpp"
 
 
 TaskHandle_t motor_task_ptr;
@@ -42,6 +43,7 @@ void setup()
   xTaskCreatePinnedToCore(bluetooth_task, "Bluetooth Task", MIN_TASK_STACK_SIZE, NULL, 1, &bluetooth_task_ptr, 1);
   xTaskCreatePinnedToCore(tof_sensor_task, "TOF Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &tof_sensor_task_ptr, 1);
   xTaskCreatePinnedToCore(camera_sensor_task, "Camera Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &camera_sensor_task_ptr, 1);
+  xTaskCreatePinnedToCore(magneto_sensor_task, "Magneto Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &magneto_sensor_task_ptr, 1);
 
   // Start scheduler
   // vTaskStartScheduler();
@@ -93,8 +95,10 @@ void loop()
     }
   }
 
+
   // Declaration of variables
   TOFSensorData tof_data = { 0, 0 };
+  MagnetoSensorData magneto_data = {0, 0, 0};
 
   // Serial.println("Dit print elke 3 seconde!");
   delay(100);
@@ -107,14 +111,20 @@ void loop()
     // Serial.println(tof_data.distance);
   }
 
+  if (magneto_sensor_data_queue != nullptr) {
+    xQueueReceive(magneto_sensor_data_queue, &magneto_data, portMAX_DELAY);
+  }
+
   if (mqtt_data_queue != nullptr) {
     char buffer[256];
     memset(buffer, 0, 256);
 
-    //snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%d, %d], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d } }");
-    snprintf(buffer, 256, "Distance: %d mm, Rotation: %d degrees", tof_data.distance, tof_data.degree);
+    snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%d, %d], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d } }", DEVICE_NAME, "", 3, 3, "", 1, tof_data.distance, magneto_data.degree);
+    // snprintf(buffer, 256, "Distance: %d mm, Rotation: %d degrees", tof_data.distance, tof_data.degree);
     // snprintf(buffer, 256, "HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
     xQueueSend(mqtt_data_queue, buffer, portMAX_DELAY);
   }
+
+  Serial.println("test");
 }

@@ -39,21 +39,23 @@ void i2c_init(uint8_t channel, uint8_t scl_pin, uint8_t sda_pin)
  * 
  * @param channel
  */
-void i2c_take_semaphore(uint8_t channel)
+bool i2c_take_semaphore(uint8_t channel)
 {
-    if ((channel == 1 && i2c_semaphore_channel_1 == nullptr) || (channel == 2 && i2c_semaphore_channel_2 == nullptr)) return;
+    if ((channel == 1 && i2c_semaphore_channel_1 == nullptr) || (channel == 2 && i2c_semaphore_channel_2 == nullptr)) return false;
 
     BaseType_t err;
 
     if (channel == 1) {
         err = xSemaphoreTake(i2c_semaphore_channel_1, ( TickType_t ) 10 );
-        if (err != pdTRUE) return;
+        if (err != pdTRUE) return false;
     } else if (channel == 2) {
         err = xSemaphoreTake(i2c_semaphore_channel_2, ( TickType_t ) 10 );
-        if (err != pdTRUE) return;
+        if (err != pdTRUE) return false;
     } else {
-        return;
+        return false;
     }
+
+    return true;
 }
 
 
@@ -62,21 +64,23 @@ void i2c_take_semaphore(uint8_t channel)
  * 
  * @param channel
  */
-void i2c_give_semaphore(uint8_t channel) 
+bool i2c_give_semaphore(uint8_t channel) 
 {
-    if ((channel == 1 && i2c_semaphore_channel_1 == nullptr) || (channel == 2 && i2c_semaphore_channel_2 == nullptr)) return;
+    if ((channel == 1 && i2c_semaphore_channel_1 == nullptr) || (channel == 2 && i2c_semaphore_channel_2 == nullptr)) return false;
 
     BaseType_t err;
 
     if (channel == 1) {
         err = xSemaphoreGive(i2c_semaphore_channel_1);
-        if (err != pdTRUE) return;
+        if (err != pdTRUE) return false;
     } else if (channel == 2) {
         err = xSemaphoreGive(i2c_semaphore_channel_2);
-        if (err != pdTRUE) return;
+        if (err != pdTRUE) return false;
     } else {
-        return;
+        return false;
     }
+
+    return true;
 }
 
 
@@ -92,8 +96,6 @@ void i2c_write_byte(TwoWire* wire, uint8_t channel, uint16_t address, uint16_t r
 {
     if (wire == nullptr) return;
 
-    i2c_take_semaphore(channel);
-
     wire->beginTransmission(address);
 
     // First send register address to i2c object
@@ -103,8 +105,6 @@ void i2c_write_byte(TwoWire* wire, uint8_t channel, uint16_t address, uint16_t r
     wire->write(data);
 
     wire->endTransmission(true);
-
-    i2c_give_semaphore(channel);
 }
 
 
@@ -151,16 +151,14 @@ byte i2c_read_byte(TwoWire* wire, uint8_t channel, uint16_t address, uint16_t re
         return 0;
     }
 
-    i2c_take_semaphore(channel);
-
     wire->beginTransmission(address);
     
     wire->write(reg);
 
     wire->endTransmission(true);
 
-    int err = wire->requestFrom(address, 1);
-    if (err != 1) {
+    int res = wire->requestFrom(address, 1);
+    if (res != 1) {
         Serial.println("err, Wire could not request data from i2c address");    
         return 0;
     }
@@ -169,8 +167,6 @@ byte i2c_read_byte(TwoWire* wire, uint8_t channel, uint16_t address, uint16_t re
     if (wire->available()) {
         data = wire->read();        
     }
-
-    i2c_give_semaphore(channel);
 
     return data;
 }

@@ -93,7 +93,7 @@ void motor_task(void *param)
     digitalWrite(MOTOR_RIGHT_SLEEP_PIN, HIGH);
 
     // Set direction pin
-    digitalWrite(MOTOR_LEFT_DIRECTION_PIN, LOW);
+    digitalWrite(MOTOR_LEFT_DIRECTION_PIN, HIGH);
     digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, LOW);
 
     // init timer
@@ -122,9 +122,11 @@ void motor_task(void *param)
 
                 timerAlarmDisable(timer);
 
+                delayMicroseconds(500);
+
                 digitalWrite(MOTOR_LEFT_DIRECTION_PIN, LOW);
 
-                delayMicroseconds(100);
+                delayMicroseconds(500);
 
                 timerAlarmEnable(timer);
 
@@ -141,9 +143,11 @@ void motor_task(void *param)
 
                 timerAlarmDisable(timer);
 
+                delayMicroseconds(500);
+
                 digitalWrite(MOTOR_LEFT_DIRECTION_PIN, HIGH);
 
-                delayMicroseconds(100);
+                delayMicroseconds(500);
 
                 timerAlarmEnable(timer);
 
@@ -162,9 +166,11 @@ void motor_task(void *param)
                 
                 timerAlarmDisable(timer);
 
+                delayMicroseconds(500);
+
                 digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, LOW);
                 
-                delayMicroseconds(100);
+                delayMicroseconds(500);
 
                 timerAlarmEnable(timer);
 
@@ -181,9 +187,11 @@ void motor_task(void *param)
 
                 timerAlarmDisable(timer);
 
+                delayMicroseconds(500);
+
                 digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, HIGH);
                 
-                delayMicroseconds(100);
+                delayMicroseconds(500);
 
                 timerAlarmEnable(timer);
 
