@@ -57,8 +57,10 @@ static motor_err_t init_motor_data(motor_data_t *motor, char *name,  uint8_t gea
     motor->o_turning = false;
     motor->o_reset = false;
     motor->o_sleep = false;
+    motor->change  = false;
 
     motor->semaphore = xSemaphoreCreateBinary();
+    xSemaphoreGive(motor->semaphore);
 
     return MOTOR_ERR_OK;
 }
@@ -91,8 +93,8 @@ void motor_task(void *param)
     digitalWrite(MOTOR_RIGHT_SLEEP_PIN, HIGH);
 
     // Set direction pin
-    digitalWrite(MOTOR_LEFT_DIRECTION_PIN, HIGH);
-    digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, HIGH);
+    digitalWrite(MOTOR_LEFT_DIRECTION_PIN, LOW);
+    digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, LOW);
 
     // init timer
     timer = timerBegin(0, 80, true);
@@ -107,16 +109,87 @@ void motor_task(void *param)
             motor1_data.o_running = true;
             motor2_data.o_running = true;
 
-            if (motor1_data.i_forward && !motor1_data.i_backward) {
+            BaseType_t err;
+
+            if (motor1_data.i_forward && !motor1_data.i_backward && motor1_data.change) {
+                err = xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
+                if (err != pdTRUE) continue;
+                
+
                 motor1_data.o_forward = true;
-            } else {
+                motor1_data.o_backward = false;
+                motor1_data.change = false;
+
+                timerAlarmDisable(timer);
+
+                digitalWrite(MOTOR_LEFT_DIRECTION_PIN, LOW);
+
+                delayMicroseconds(100);
+
+                timerAlarmEnable(timer);
+
+                Serial.println("Motor 1 turning forward!");
+
+                xSemaphoreGive(motor1_data.semaphore);
+            } else if (!motor1_data.i_forward && motor1_data.i_backward && motor1_data.change) {
+                err = xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
+                if (err != pdTRUE) continue;
+
                 motor1_data.o_forward = false;
+                motor1_data.o_backward = true;
+                motor1_data.change = false;
+
+                timerAlarmDisable(timer);
+
+                digitalWrite(MOTOR_LEFT_DIRECTION_PIN, HIGH);
+
+                delayMicroseconds(100);
+
+                timerAlarmEnable(timer);
+
+                Serial.println("Motor 1 turning backward!");
+
+                xSemaphoreGive(motor1_data.semaphore);
             }
 
-            if (motor2_data.i_forward && !motor2_data.i_backward) {
+            if (motor2_data.i_forward && !motor2_data.i_backward && motor2_data.change) {
+                err = xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
+                if (err != pdTRUE) continue;
+
                 motor2_data.o_forward = true;
-            } else {
+                motor2_data.o_backward = false;
+                motor2_data.change = false;
+                
+                timerAlarmDisable(timer);
+
+                digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, LOW);
+                
+                delayMicroseconds(100);
+
+                timerAlarmEnable(timer);
+
+                Serial.println("Motor 2 turning forward!");
+
+                xSemaphoreGive(motor2_data.semaphore);
+            } else if (!motor2_data.i_forward && motor2_data.i_backward && motor2_data.change) {
+                err = xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
+                if (err != pdTRUE) continue;
+
                 motor2_data.o_forward = false;
+                motor2_data.o_backward = true;
+                motor2_data.change = false;
+
+                timerAlarmDisable(timer);
+
+                digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, HIGH);
+                
+                delayMicroseconds(100);
+
+                timerAlarmEnable(timer);
+
+                Serial.println("Motor 2 turning backward!");
+
+                xSemaphoreGive(motor2_data.semaphore);
             }
         }
     }

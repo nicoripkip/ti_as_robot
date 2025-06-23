@@ -2,14 +2,16 @@
 #include <Arduino.h>
 #include "i2chandler.hpp"
 #include "config.hpp"
+#include "Adafruit_VL53L1X.h"
+#include "buffers.hpp"
 
 
 bool turn_left = false;
 bool turn_right = false;
-
-
 const uint32_t min_pwm_pulse_width = 500; // i guess miliseconds
 const uint32_t max_pwm_pulse_width = 2500;
+// VL53L0X lox;
+Adafruit_VL53L1X vl53 = Adafruit_VL53L1X();
 
 
 /**
@@ -39,13 +41,8 @@ void tof_sensor_task(void* param)
     ledcSetup(SERVO_TOF_SENSOR_PWM_CHANNEL, SERVO_TOF_SENSOR_PWM_FREQ, SERVO_TOF_SENSOR_PWM_RES);
     ledcAttachPin(SERVO_TOF_SENSOR_PWM_PIN, SERVO_TOF_SENSOR_PWM_CHANNEL);
 
-
-    // pinMode(35, OUTPUT);
-    // digitalWrite(35, 1);
-
     //Start with the servo turning right
     turn_right = true;
-
     uint8_t tellen = 90;
 
     uint16_t MAX_TURN_RANGE = 0;
@@ -54,12 +51,45 @@ void tof_sensor_task(void* param)
 
     // Reset servo on midpoint
     ledcWrite(SERVO_TOF_SENSOR_PWM_CHANNEL, turn_servo(tellen));
+    // Init the TOF sensor
+    if (!vl53.begin(TOF_SENSOR_ADDRESS, &Wire)) {
+        Serial.println("Failed to intialize the sensor!");
+    }
+    Serial.println(F("VL53L1X sensor OK!"));
 
-    byte data = i2c_read_byte(&Wire, 1, TOF_SENSOR_ADDRESS, 0xC0);
-    Serial.print("TOF Sensor data read: ");
-    Serial.println(data, HEX);
+    if (! vl53.startRanging()) {
+        Serial.print(F("Couldn't start ranging: "));
+        Serial.println(vl53.vl_status);
+        while (1)  delay(10);
+    }
+    Serial.println(F("Ranging started"));
+    vl53.setTimingBudget(20);
+    Serial.print(F("Timing budget (ms): "));
+    Serial.println(vl53.getTimingBudget());
+
+    // Setup buffers
+    tof_sensor_data_queue = xQueueCreate(10, sizeof(struct TOFSensorData));
 
     while (true) {
+        // Serial.print("Distance: ");
+        // Serial.println(lox.readRangeContinuousMillimeters());
+
+        struct TOFSensorData tof_data;
+
+        tof_data.distance = vl53.distance();
+        tof_data.degree = tellen;
+
+
+        if (tof_data.distance == -1) {
+            // something went wrong!
+            Serial.print(F("Couldn't get distance: "));
+            Serial.println(vl53.vl_status);
+        } else {
+            // Serial.print(F("Distance: "));
+            // Serial.print(tof_data.distance);
+            // Serial.println(" mm");
+        }
+
         if (turn_left) {
             if ( tellen >= MAX_TURN_RANGE) {
                 turn_left = false;
@@ -79,6 +109,9 @@ void tof_sensor_task(void* param)
         }
 
         ledcWrite(SERVO_TOF_SENSOR_PWM_CHANNEL, turn_servo(tellen));
-        delay(1);
+
+        if (tof_sensor_data_queue != nullptr) {
+            xQueueSend(tof_sensor_data_queue, &tof_data, 10);
+        }
     }
 }

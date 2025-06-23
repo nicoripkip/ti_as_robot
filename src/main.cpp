@@ -46,8 +46,8 @@ void setup()
   // Start scheduler
   // vTaskStartScheduler();
 
-  // motor1_data.i_run = true;
-  // motor2_data.i_run = true;
+  motor1_data.i_run = true;
+  motor2_data.i_run = true;         
 }
 
 
@@ -57,16 +57,63 @@ void setup()
  */
 void loop()
 {
+  if (Serial.available()) {
+    char n = Serial.read();
+    
+    if (n == 'f') {
+      xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
+      xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
+
+      motor1_data.i_forward = true;
+      motor1_data.i_backward = false;
+
+      motor2_data.i_forward = true;
+      motor2_data.i_backward = false;
+
+      motor1_data.change = true;
+      motor2_data.change = true;
+
+      xSemaphoreGive(motor1_data.semaphore);
+      xSemaphoreGive(motor2_data.semaphore);
+    } else if ('b') {
+      xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
+      xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
+
+      motor1_data.i_forward = false;
+      motor1_data.i_backward = true;
+
+      motor2_data.i_forward = false;
+      motor2_data.i_backward = true; 
+
+      motor1_data.change = true;
+      motor2_data.change = true;
+
+      xSemaphoreGive(motor1_data.semaphore);
+      xSemaphoreGive(motor2_data.semaphore);
+    }
+  }
+
+  // Declaration of variables
+  TOFSensorData tof_data = { 0, 0 };
+
   // Serial.println("Dit print elke 3 seconde!");
-  delay(1000);
+  delay(100);
+
+  if (tof_sensor_data_queue != nullptr) {
+    // Get data from buffer
+    xQueueReceive(tof_sensor_data_queue, &tof_data, portMAX_DELAY);
+
+    // Serial.print("Distance: ");
+    // Serial.println(tof_data.distance);
+  }
 
   if (mqtt_data_queue != nullptr) {
     char buffer[256];
     memset(buffer, 0, 256);
 
     //snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%d, %d], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d } }");
-    snprintf(buffer, 256, "haaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-
+    snprintf(buffer, 256, "Distance: %d mm, Rotation: %d degrees", tof_data.distance, tof_data.degree);
+    // snprintf(buffer, 256, "HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
     xQueueSend(mqtt_data_queue, buffer, portMAX_DELAY);
   }

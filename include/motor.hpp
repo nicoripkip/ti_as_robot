@@ -48,6 +48,7 @@ typedef struct {
     volatile bool           o_sleep;
 
     // Handle synchronization across threads
+    bool                    change;
     SemaphoreHandle_t       semaphore;
 } motor_data_t;
 

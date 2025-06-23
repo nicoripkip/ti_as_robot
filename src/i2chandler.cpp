@@ -22,6 +22,7 @@ void i2c_init(uint8_t channel, uint8_t scl_pin, uint8_t sda_pin)
         xSemaphoreGive(i2c_semaphore_channel_1);
 
         Wire.begin(sda_pin, scl_pin);
+        Wire.setClock(400000);
     } else if (channel == 2) {
         i2c_semaphore_channel_2 = xSemaphoreCreateBinary();
         xSemaphoreGive(i2c_semaphore_channel_2);
@@ -176,13 +177,15 @@ byte i2c_read_byte(TwoWire* wire, uint8_t channel, uint16_t address, uint16_t re
 
 
 /**
- * @brief Function to read a single byte from a given i2c bus
+ * @brief Function to read multiple bytes from a given i2c bus
  * 
  * @param wire
+ * @param channel
  * @param address
  * @param reg
+ * @param buffer
+ * @param len
  * 
- * @return byte
  */
 void i2c_read_buffer(TwoWire* wire, uint8_t channel, uint16_t address, uint16_t reg, byte* buffer, uint8_t len)
 {

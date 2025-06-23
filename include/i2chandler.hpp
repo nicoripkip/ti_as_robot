@@ -12,5 +12,8 @@ void i2c_write_buffer(TwoWire* wire, uint8_t channel, uint16_t address, uint16_t
 byte i2c_read_byte(TwoWire* wire, uint8_t channel, uint16_t address, uint16_t reg);
 void i2c_read_buffer(TwoWire* wire, uint8_t channel, uint16_t address, uint16_t reg, byte* buffer, uint8_t len);
 
+void i2c_take_semaphore(uint8_t channel);
+void i2c_give_semaphore(uint8_t channel);
+
 
 #endif
