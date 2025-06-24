@@ -137,7 +137,7 @@ void network_task(void *param)
 
             // Process of sending data 
             if (uxQueueMessagesWaiting(mqtt_data_queue) > 0) {
-                xQueueReceive(mqtt_data_queue, &message, portMAX_DELAY);
+                xQueueReceive(mqtt_data_queue, &message, 50);
 
                 mqtt_client.publish("/ti/as/robot2hmi", message);
             }

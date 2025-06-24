@@ -101,18 +101,17 @@ void loop()
   MagnetoSensorData magneto_data = {0, 0, 0};
 
   // Serial.println("Dit print elke 3 seconde!");
-  delay(100);
 
   if (tof_sensor_data_queue != nullptr) {
     // Get data from buffer
-    xQueueReceive(tof_sensor_data_queue, &tof_data, portMAX_DELAY);
+    xQueueReceive(tof_sensor_data_queue, &tof_data, 50);
 
     // Serial.print("Distance: ");
     // Serial.println(tof_data.distance);
   }
 
   if (magneto_sensor_data_queue != nullptr) {
-    xQueueReceive(magneto_sensor_data_queue, &magneto_data, portMAX_DELAY);
+    xQueueReceive(magneto_sensor_data_queue, &magneto_data, 50);
   }
 
   if (mqtt_data_queue != nullptr) {
@@ -123,8 +122,8 @@ void loop()
     // snprintf(buffer, 256, "Distance: %d mm, Rotation: %d degrees", tof_data.distance, tof_data.degree);
     // snprintf(buffer, 256, "HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
-    xQueueSend(mqtt_data_queue, buffer, portMAX_DELAY);
+    xQueueSend(mqtt_data_queue, buffer, 10);
   }
 
-  Serial.println("test");
+  // Serial.println("test");
 }

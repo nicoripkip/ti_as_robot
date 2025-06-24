@@ -5,6 +5,11 @@
 #include "buffers.hpp"
 
 
+static int16_t sensor_bias_x = 0;
+static int16_t sensor_bias_y = 0;
+static int16_t sensor_bias_z = 0;
+
+
 /**
  * @brief Function to calculate the exponential filter
  * 
@@ -92,7 +97,7 @@ void magneto_init()
  * @param value_y
  * @param value_z
  */
-void magneto_measurement(int16_t* value_x, int16_t* value_y, int16_t* value_z)
+bool magneto_measurement(int16_t* value_x, int16_t* value_y, int16_t* value_z)
 {
     bool err;
     byte x_lsb, x_msb, y_lsb, y_msb, z_lsb, z_msb;
@@ -100,7 +105,7 @@ void magneto_measurement(int16_t* value_x, int16_t* value_y, int16_t* value_z)
     uint16_t bitmask = 0xFFFF;
 
     err = i2c_take_semaphore(1);
-    if (!err) return;
+    if (!err) return false;
 
     x_lsb = i2c_read_byte(&Wire, 1, MAGNETO_SENSOR_ADDRESS, 0x00);
     x_msb = i2c_read_byte(&Wire, 1, MAGNETO_SENSOR_ADDRESS, 0x01);
@@ -113,7 +118,7 @@ void magneto_measurement(int16_t* value_x, int16_t* value_y, int16_t* value_z)
 
     measure_x = ((int16_t)x_msb<<8) | x_lsb;
     measure_y = ((int16_t)y_msb<<8) | y_lsb;
-    measure_z = ((int16_t)z_msb<<8) | z_msb;
+    measure_z = ((int16_t)z_msb<<8) | z_lsb;
 
     *value_x = measure_x;
     *value_y = measure_y;
@@ -126,6 +131,37 @@ void magneto_measurement(int16_t* value_x, int16_t* value_y, int16_t* value_z)
     // Serial.print(", z: ");
     // Serial.print(measure_z);
     // Serial.println("]");
+
+    return true;
+}
+
+
+/**
+ * @brief Function to calibrate the sensor before using it
+ * 
+ * @param samples
+ */
+void magneto_calibrate(uint16_t samples)
+{
+    uint16_t i = 0;
+    int16_t x, y, z;
+    int32_t sample_x = 0, sample_y = 0, sample_z = 0;
+    struct MagnetoSensorData data[samples];
+
+    while (i < samples) {
+        if (magneto_measurement(&data[i].measure_x, &data[i].measure_y, &data[i].measure_z)) i++;
+        delayMicroseconds(3000);
+    }
+
+    for (i = 0; i < samples; i++) {
+        sample_x += data[i].measure_x;
+        sample_y += data[i].measure_y;
+        sample_z += data[i].measure_z;
+    }
+
+    sensor_bias_x = 0 - (sample_x / samples);
+    sensor_bias_y = 0 - (sample_y / samples);
+    sensor_bias_z = 0 - (sample_z / samples);
 }
 
 
@@ -138,19 +174,39 @@ void magneto_sensor_task(void* param)
 {
     magneto_init();
 
+    magneto_calibrate(100);
+
     while (true) {
         int16_t x, y, z;
         struct MagnetoSensorData data;
+        static struct MagnetoSensorData prev_data = { 0, 0, 0, 0};
         magneto_measurement(&x, &y, &z);
 
-        data.measure_x = x;
-        data.measure_y = y;
-        data.measure_z = z;
-        data.degree = convert_output_to_degree(x, y);
+        data.measure_x = x + sensor_bias_x;
+        data.measure_y = y + sensor_bias_y;
+        data.measure_z = z + sensor_bias_z;
+
+        Serial.print("Magneto data: [ x: ");
+        Serial.print(data.measure_x);
+        Serial.print(", y: ");
+        Serial.print(data.measure_y);
+        Serial.print(", z: ");
+        Serial.print(data.measure_z);
+        Serial.println("]");
+
+        data.degree = convert_output_to_degree(data.measure_x, data.measure_y);
+
+        // Let's filter the distance with an exponetial filter
+        data.degree = exponential_filter(0.5, data.degree, prev_data.degree);
+
+        Serial.print("Rotation: ");
+        Serial.println(data.degree);
 
         if (magneto_sensor_data_queue != nullptr) {
             xQueueSend(magneto_sensor_data_queue, &data, 10);
         }
+
+        prev_data = data;
 
         delay(100);
     }
