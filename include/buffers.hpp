@@ -15,5 +15,7 @@ extern QueueHandle_t    logger_queue;
 extern motor_data_t     motor1_data;
 extern motor_data_t     motor2_data;
 
+extern uint16_t magneto_rotation;
+
 
 #endif

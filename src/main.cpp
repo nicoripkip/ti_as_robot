@@ -21,6 +21,75 @@ TaskHandle_t camera_sensor_task_ptr;
 TaskHandle_t magneto_sensor_task_ptr;
 
 
+enum RobotAction
+{
+  ACTION_IDLE = 0,
+  ACTION_SEARCHING = 1,
+  ACTION_FOLLOWING = 2,
+  ACTION_RETRIEVING = 3
+};
+
+
+/**
+ * @brief Update the action given by the hypervisor or hmi
+ * 
+ * @param action
+ */
+void update_motor_state(enum RobotAction action)
+{
+  BaseType_t err1;
+  BaseType_t err2;
+
+  err1 = xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
+  err2 = xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
+  if (err1 != pdTRUE) return;
+  if (err2 != pdTRUE) {
+    xSemaphoreGive(motor1_data.semaphore);
+    return;
+  }
+
+  switch (action) {
+    case ACTION_IDLE:
+        motor1_data.i_run = false;
+        motor2_data.i_run = false;
+
+        motor1_data.i_forward = false;
+        motor1_data.i_backward = false;
+        motor1_data.i_turn_left = false;
+        motor1_data.i_turn_right = false;
+
+        motor2_data.i_forward = false;
+        motor2_data.i_backward = false;
+        motor2_data.i_turn_left = false;
+        motor2_data.i_turn_right = false;
+      break;
+
+    case ACTION_SEARCHING:
+        motor1_data.i_run = true;
+        motor2_data.i_run = true;
+
+        motor1_data.i_forward = true;
+        motor2_data.i_forward = true;
+      break;
+
+    case ACTION_FOLLOWING:
+
+      break;
+
+    case ACTION_RETRIEVING:
+
+      break;
+
+    default:
+
+      break;
+  }
+
+  xSemaphoreGive(motor1_data.semaphore);
+  xSemaphoreGive(motor2_data.semaphore);
+}
+
+
 /**
  * @brief Setup basic tasks for the Microcontroller
  * 
@@ -35,7 +104,7 @@ void setup()
   if (ENABLE_I2C_BUS_2) i2c_init(2, I2C_BUS_2_SDA_PIN, I2C_BUS_2_SDL_PIN);
 
   // Init slam
-  // init_map();
+  init_map();
 
   // Register all tasks needed for the bot to work
   xTaskCreatePinnedToCore(motor_task, "Motor Task", MIN_TASK_STACK_SIZE, NULL, 1, &motor_task_ptr, 1);
@@ -44,9 +113,6 @@ void setup()
   xTaskCreatePinnedToCore(tof_sensor_task, "TOF Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &tof_sensor_task_ptr, 1);
   xTaskCreatePinnedToCore(camera_sensor_task, "Camera Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &camera_sensor_task_ptr, 1);
   xTaskCreatePinnedToCore(magneto_sensor_task, "Magneto Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &magneto_sensor_task_ptr, 1);
-
-  // Start scheduler
-  // vTaskStartScheduler();
 
   motor1_data.i_run = true;
   motor2_data.i_run = true;         
@@ -114,16 +180,22 @@ void loop()
     xQueueReceive(magneto_sensor_data_queue, &magneto_data, 50);
   }
 
+  struct SlamMapData robot_coord = get_robot_coord();
+
   if (mqtt_data_queue != nullptr) {
     char buffer[256];
     memset(buffer, 0, 256);
 
-    snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%d, %d], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d } }", DEVICE_NAME, "", 3, 3, "", 1, tof_data.distance, magneto_data.degree);
+    snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%d, %d], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d } }", DEVICE_NAME, "", robot_coord.x_coord, robot_coord.y_coord, "", 1, tof_data.distance, magneto_data.degree);
     // snprintf(buffer, 256, "Distance: %d mm, Rotation: %d degrees", tof_data.distance, tof_data.degree);
     // snprintf(buffer, 256, "HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
     xQueueSend(mqtt_data_queue, buffer, 10);
   }
+
+  // update_map();
+
+
 
   // Serial.println("test");
 }

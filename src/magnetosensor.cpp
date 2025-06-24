@@ -186,21 +186,23 @@ void magneto_sensor_task(void* param)
         data.measure_y = y + sensor_bias_y;
         data.measure_z = z + sensor_bias_z;
 
-        Serial.print("Magneto data: [ x: ");
-        Serial.print(data.measure_x);
-        Serial.print(", y: ");
-        Serial.print(data.measure_y);
-        Serial.print(", z: ");
-        Serial.print(data.measure_z);
-        Serial.println("]");
+        // Serial.print("Magneto data: [ x: ");
+        // Serial.print(data.measure_x);
+        // Serial.print(", y: ");
+        // Serial.print(data.measure_y);
+        // Serial.print(", z: ");
+        // Serial.print(data.measure_z);
+        // Serial.println("]");
 
         data.degree = convert_output_to_degree(data.measure_x, data.measure_y);
 
         // Let's filter the distance with an exponetial filter
         data.degree = exponential_filter(0.5, data.degree, prev_data.degree);
 
-        Serial.print("Rotation: ");
-        Serial.println(data.degree);
+        // Serial.print("Rotation: ");
+        // Serial.println(data.degree);
+
+        magneto_rotation = data.degree;
 
         if (magneto_sensor_data_queue != nullptr) {
             xQueueSend(magneto_sensor_data_queue, &data, 10);

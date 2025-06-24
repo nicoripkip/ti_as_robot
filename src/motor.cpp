@@ -2,10 +2,13 @@
 #include <Arduino.h>
 #include "config.hpp"
 #include "buffers.hpp"
+#include "slam.hpp"
 
 
 hw_timer_t* timer;
 volatile bool step_state = false;
+volatile uint32_t steps = 0;
+volatile bool update_coord = false;
 
 
 /**
@@ -22,6 +25,11 @@ void IRAM_ATTR move_motor()
             digitalWrite(MOTOR_LEFT_STEP_PIN, LOW);
             digitalWrite(MOTOR_RIGHT_STEP_PIN, LOW);
         }
+
+        // Flag when a step is taken and the coord can be logged of the robot
+        if (!update_coord) update_coord = true;
+
+        steps++;
     }
 
     step_state = !step_state;
@@ -67,6 +75,148 @@ static motor_err_t init_motor_data(motor_data_t *motor, char *name,  uint8_t gea
 
 
 /**
+ * @brief Function that checks what the motor directions does and changes the direction
+ * 
+ * @param motor_data
+ * 
+ * @return bool
+ */
+bool validate_motor_direction(motor_data_t* motor_data, uint8_t dir_pin)
+{
+    BaseType_t err;
+
+    err = xSemaphoreTake(motor_data->semaphore, 10);
+    if (err != pdTRUE) return false;
+
+    // Change the motor direction
+    if (motor_data->i_forward && !motor_data->i_backward && motor_data->change) { 
+
+        // If the motor goes forward the pin is pulled low
+        motor1_data.o_forward = true;
+        motor1_data.o_backward = false;
+        motor1_data.change = false;
+
+        timerAlarmDisable(timer);
+
+        delayMicroseconds(500);
+
+        digitalWrite(dir_pin, LOW);
+
+        delayMicroseconds(500);
+
+        timerAlarmEnable(timer);
+
+        Serial.println("Motor turning forward!");
+
+    } else if (!motor_data->i_forward && motor_data->i_backward && motor_data->change) { 
+        // If the motor goes backward the pin is pulled high
+        motor1_data.o_forward = true;
+        motor1_data.o_backward = false;
+        motor1_data.change = false;
+
+        timerAlarmDisable(timer);
+
+        delayMicroseconds(500);
+
+        digitalWrite(dir_pin, HIGH);
+
+        delayMicroseconds(500);
+
+        timerAlarmEnable(timer);
+
+        Serial.println("Motor turning backward!");
+    }
+
+    return true;
+}
+
+
+/**
+ * @brief Function that will set the motor to move forward
+ * 
+ * 
+ */
+bool move_motor_forward()
+{
+    BaseType_t err1;
+    BaseType_t err2;
+
+    err1 = xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
+    err2 = xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
+    if (err1 != pdTRUE) return false;
+    if (err2 != pdTRUE) {
+        xSemaphoreGive(motor1_data.semaphore);
+        return false;
+    }
+
+    digitalWrite(MOTOR_LEFT_DIRECTION_PIN, HIGH);
+    digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, LOW);
+
+    xSemaphoreGive(motor1_data.semaphore);
+    xSemaphoreGive(motor2_data.semaphore);
+
+    return true;
+}
+
+
+bool move_motor_backward() 
+{
+    BaseType_t err1;
+    BaseType_t err2;
+
+    err1 = xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
+    err2 = xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
+    if (err1 != pdTRUE) return;
+    if (err2 != pdTRUE) {
+        xSemaphoreGive(motor1_data.semaphore);
+        return;
+    }
+
+
+    xSemaphoreGive(motor1_data.semaphore);
+    xSemaphoreGive(motor2_data.semaphore);
+}
+
+
+bool move_motor_left()
+{
+    BaseType_t err1;
+    BaseType_t err2;
+
+    err1 = xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
+    err2 = xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
+    if (err1 != pdTRUE) return;
+    if (err2 != pdTRUE) {
+        xSemaphoreGive(motor1_data.semaphore);
+        return;
+    }
+
+
+    xSemaphoreGive(motor1_data.semaphore);
+    xSemaphoreGive(motor2_data.semaphore);
+}
+
+
+bool move_motor_right()
+{
+    BaseType_t err1;
+    BaseType_t err2;
+
+    err1 = xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
+    err2 = xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
+    if (err1 != pdTRUE) return;
+    if (err2 != pdTRUE) {
+        xSemaphoreGive(motor1_data.semaphore);
+        return;
+    }
+
+
+    xSemaphoreGive(motor1_data.semaphore);
+    xSemaphoreGive(motor2_data.semaphore);
+}
+
+
+/**
  * @brief This function contains all the logic to make the motors run
  * 
  * @param param
@@ -104,101 +254,21 @@ void motor_task(void *param)
     timerAlarmEnable(timer);
 
     // This while loop will controll all the motor stages
-    while (true) {
+    while (true) { 
+        // Process the steps of the robot to update the coordinate
+        if (update_coord) {
+            update_coord = false;
+            update_robot_coord(steps, magneto_rotation);
+            steps = 0;
+        }
+
+        // Do some control over the direction of the robot
         if (motor1_data.i_run && motor2_data.i_run) {
             motor1_data.o_running = true;
             motor2_data.o_running = true;
 
-            BaseType_t err;
-
-            if (motor1_data.i_forward && !motor1_data.i_backward && motor1_data.change) {
-                err = xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
-                if (err != pdTRUE) continue;
-                
-
-                motor1_data.o_forward = true;
-                motor1_data.o_backward = false;
-                motor1_data.change = false;
-
-                timerAlarmDisable(timer);
-
-                delayMicroseconds(500);
-
-                digitalWrite(MOTOR_LEFT_DIRECTION_PIN, LOW);
-
-                delayMicroseconds(500);
-
-                timerAlarmEnable(timer);
-
-                Serial.println("Motor 1 turning forward!");
-
-                xSemaphoreGive(motor1_data.semaphore);
-            } else if (!motor1_data.i_forward && motor1_data.i_backward && motor1_data.change) {
-                err = xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
-                if (err != pdTRUE) continue;
-
-                motor1_data.o_forward = false;
-                motor1_data.o_backward = true;
-                motor1_data.change = false;
-
-                timerAlarmDisable(timer);
-
-                delayMicroseconds(500);
-
-                digitalWrite(MOTOR_LEFT_DIRECTION_PIN, HIGH);
-
-                delayMicroseconds(500);
-
-                timerAlarmEnable(timer);
-
-                Serial.println("Motor 1 turning backward!");
-
-                xSemaphoreGive(motor1_data.semaphore);
-            }
-
-            if (motor2_data.i_forward && !motor2_data.i_backward && motor2_data.change) {
-                err = xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
-                if (err != pdTRUE) continue;
-
-                motor2_data.o_forward = true;
-                motor2_data.o_backward = false;
-                motor2_data.change = false;
-                
-                timerAlarmDisable(timer);
-
-                delayMicroseconds(500);
-
-                digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, LOW);
-                
-                delayMicroseconds(500);
-
-                timerAlarmEnable(timer);
-
-                Serial.println("Motor 2 turning forward!");
-
-                xSemaphoreGive(motor2_data.semaphore);
-            } else if (!motor2_data.i_forward && motor2_data.i_backward && motor2_data.change) {
-                err = xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
-                if (err != pdTRUE) continue;
-
-                motor2_data.o_forward = false;
-                motor2_data.o_backward = true;
-                motor2_data.change = false;
-
-                timerAlarmDisable(timer);
-
-                delayMicroseconds(500);
-
-                digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, HIGH);
-                
-                delayMicroseconds(500);
-
-                timerAlarmEnable(timer);
-
-                Serial.println("Motor 2 turning backward!");
-
-                xSemaphoreGive(motor2_data.semaphore);
-            }
+            validate_motor_direction(&motor1_data, MOTOR_LEFT_DIRECTION_PIN);
+            validate_motor_direction(&motor2_data, MOTOR_RIGHT_DIRECTION_PIN);
         }
     }
 }

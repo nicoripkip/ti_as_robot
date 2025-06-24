@@ -19,3 +19,6 @@ QueueHandle_t logger_queue;
  */
 motor_data_t  motor1_data;
 motor_data_t  motor2_data;
+
+
+uint16_t magneto_rotation;
