@@ -3,11 +3,16 @@
 #include "config.hpp"
 #include "i2chandler.hpp"
 #include "buffers.hpp"
+#include <DFRobot_QMC5883.h>
+
+
+DFRobot_QMC5883 compass(&Wire, /*I2C addr*/ MAGNETO_SENSOR_ADDRESS);
 
 
 static int16_t sensor_bias_x = 0;
 static int16_t sensor_bias_y = 0;
 static int16_t sensor_bias_z = 0;
+
 
 
 /**
@@ -21,7 +26,7 @@ static int16_t sensor_bias_z = 0;
  */
 uint16_t exponential_filter(float alpha, uint16_t measurement, uint16_t prev_measurment)
 {
-    return (uint16_t)(alpha * measurement + (1.0 - alpha) * prev_measurment);
+    return (uint16_t)(alpha * prev_measurment + (1 - alpha) * measurement); 
 }
 
 
@@ -150,7 +155,7 @@ void magneto_calibrate(uint16_t samples)
 
     while (i < samples) {
         if (magneto_measurement(&data[i].measure_x, &data[i].measure_y, &data[i].measure_z)) i++;
-        delayMicroseconds(3000);
+        delayMicroseconds(300);
     }
 
     for (i = 0; i < samples; i++) {
@@ -172,44 +177,70 @@ void magneto_calibrate(uint16_t samples)
  */
 void magneto_sensor_task(void* param)
 {
-    magneto_init();
+    // magneto_init();
 
-    magneto_calibrate(100);
+    // magneto_calibrate(100);
+
+    magneto_sensor_data_queue = xQueueCreate(300, sizeof(struct MagnetoSensorData));
+
+    bool err = false;
+
+    while (!err) err = i2c_take_semaphore(1);
+
+    while (!compass.begin());
+
+    if (compass.isQMC()) {
+        compass.setRange(QMC5883_RANGE_2GA);
+        compass.setMeasurementMode(QMC5883_CONTINOUS);
+
+        compass.setDataRate(QMC5883_DATARATE_100HZ);
+
+        compass.setSamples(QMC5883_SAMPLES_8);
+    }
+
+    i2c_give_semaphore(1);
 
     while (true) {
-        int16_t x, y, z;
+        // int16_t x, y, z;
         struct MagnetoSensorData data;
-        static struct MagnetoSensorData prev_data = { 0, 0, 0, 0};
-        magneto_measurement(&x, &y, &z);
+        sVector_t mag;
+        // static struct MagnetoSensorData prev_data = { 0, 0, 0, 0};
+        // magneto_measurement(&x, &y, &z);
 
-        data.measure_x = x + sensor_bias_x;
-        data.measure_y = y + sensor_bias_y;
-        data.measure_z = z + sensor_bias_z;
+        // data.measure_x = x + sensor_bias_x;
+        // data.measure_y = y + sensor_bias_y;
+        // data.measure_z = z + sensor_bias_z;
 
-        // Serial.print("Magneto data: [ x: ");
-        // Serial.print(data.measure_x);
-        // Serial.print(", y: ");
-        // Serial.print(data.measure_y);
-        // Serial.print(", z: ");
-        // Serial.print(data.measure_z);
-        // Serial.println("]");
 
-        data.degree = convert_output_to_degree(data.measure_x, data.measure_y);
+        // Declination angle for the netherlands
+        float declinationAngle = (1.0 + (0.0 / 60.0)) * (PI / 180.0);
 
-        // Let's filter the distance with an exponetial filter
-        data.degree = exponential_filter(0.5, data.degree, prev_data.degree);
+        if (i2c_take_semaphore(1)) {
+            compass.setDeclinationAngle(declinationAngle);
+            mag = compass.readRaw();
 
-        // Serial.print("Rotation: ");
-        // Serial.println(data.degree);
+            i2c_give_semaphore(1);
+        }
+
+        float rads = atan2(mag.XAxis, mag.YAxis);
+        rads += declinationAngle;
+        float degs = degrees(rads);
+        if (degs < 0) degs += 360;
+
+        data.measure_x = mag.XAxis;
+        data.measure_y = mag.YAxis;
+        data.measure_z = mag.ZAxis;
+
+        data.degree = exponential_filter(0.5, degs, magneto_rotation);
+        data.scan_interval = micros();
 
         magneto_rotation = data.degree;
 
         if (magneto_sensor_data_queue != nullptr) {
-            xQueueSend(magneto_sensor_data_queue, &data, 10);
+            xQueueSend(magneto_sensor_data_queue, &data, 0);
         }
 
-        prev_data = data;
-
-        delay(100);
+        // prev_data = data;
+        delay(10);
     }
 }

@@ -64,7 +64,7 @@ void init_Wifi()
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-    Serial.print("Wifi is trying to connect to the network: ");
+    // Serial.print("Wifi is trying to connect to the network: ");
 
     // Try to connect to the network
     uint8_t counter = 0;
@@ -76,8 +76,8 @@ void init_Wifi()
         if (counter >= 100) return;
     }
 
-    Serial.println("");
-    Serial.println("Wifi connected to network!");
+    // Serial.println("");
+    // Serial.println("Wifi connected to network!");
 
     wifi_connected = true;
 
@@ -85,7 +85,7 @@ void init_Wifi()
     // esp_wifi_set_max_tx_power(20);
 
     // Sync time with the time server
-    Serial.println("Trying to sync time!");
+    // Serial.println("Trying to sync time!");
     configTime(0, (3600 * 2), "ntppool1.time.nl", "ntppool2.time.nl");
 }
 
@@ -103,12 +103,12 @@ void init_mqtt()
     mqtt_client.setServer(MQTT_SERVER, MQTT_PORT);
     mqtt_client.setCallback(mqtt_callback);
 
-    Serial.println("Try to connect to mqtt server!");
+    // Serial.println("Try to connect to mqtt server!");
     if (!MQTT_CLIENT_ANONYMOUS) mqtt_connected = mqtt_client.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASS);
     else mqtt_connected = mqtt_client.connect(MQTT_CLIENT_ID);
 
-    if (mqtt_connected) Serial.println("Succesfully connected to mqtt server");
-    else Serial.println("Failed to connect to mqtt server!");
+    // if (mqtt_connected) Serial.println("Succesfully connected to mqtt server");
+    // else Serial.println("Failed to connect to mqtt server!");
 
     // Subscribe to the rx channels
     mqtt_client.subscribe("/ti/as/hmi2robot");
@@ -139,7 +139,7 @@ void network_task(void *param)
             if (uxQueueMessagesWaiting(mqtt_data_queue) > 0) {
                 xQueueReceive(mqtt_data_queue, &message, 50);
 
-                mqtt_client.publish("/ti/as/robot2hmi", message);
+                mqtt_client.publish("/robot", message);
             }
 
             // Make sure client is always looped

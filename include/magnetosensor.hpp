@@ -10,6 +10,7 @@ struct MagnetoSensorData {
     int16_t measure_y;
     int16_t measure_z;
     uint16_t degree;
+    uint32_t scan_interval;
 };
 
 

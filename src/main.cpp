@@ -11,6 +11,12 @@
 #include "slam.hpp"
 #include "i2chandler.hpp"
 #include "magnetosensor.hpp"
+#include <vector>
+
+
+std::vector<struct MagnetoSensorData> slam_magneto_data;
+std::vector<struct TOFSensorData> slam_tof_data;
+std::vector<struct robot_pos_t> slam_pos_data; 
 
 
 TaskHandle_t motor_task_ptr;
@@ -19,6 +25,9 @@ TaskHandle_t bluetooth_task_ptr;
 TaskHandle_t tof_sensor_task_ptr;
 TaskHandle_t camera_sensor_task_ptr;
 TaskHandle_t magneto_sensor_task_ptr;
+
+int stepss = 0;
+int turning = 0;
 
 
 enum RobotAction
@@ -115,7 +124,12 @@ void setup()
   xTaskCreatePinnedToCore(magneto_sensor_task, "Magneto Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &magneto_sensor_task_ptr, 1);
 
   motor1_data.i_run = true;
-  motor2_data.i_run = true;         
+  motor2_data.i_run = true;      
+  
+  // Setup buffers
+  slam_magneto_data.reserve(300);
+  slam_pos_data.reserve(300);
+  slam_tof_data.reserve(300);
 }
 
 
@@ -125,77 +139,82 @@ void setup()
  */
 void loop()
 {
-  if (Serial.available()) {
-    char n = Serial.read();
-    
-    if (n == 'f') {
-      xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
-      xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
+  // Make sure all buffers are empty
+  slam_magneto_data.clear();
+  slam_pos_data.clear();
+  slam_tof_data.clear();
 
-      motor1_data.i_forward = true;
-      motor1_data.i_backward = false;
+  // Search path for the robot
+  if (stepss < 300) {
+    motor1_data.i_forward = true;
+    motor1_data.i_forward = true;
 
-      motor2_data.i_forward = true;
-      motor2_data.i_backward = false;
+    motor1_data.i_backward = false;
+    motor2_data.i_backward = false;
 
-      motor1_data.change = true;
-      motor2_data.change = true;
+    stepss++;
+  } else {
+    motor1_data.i_turn_left = true;
+    motor2_data.i_turn_left = true;
 
-      xSemaphoreGive(motor1_data.semaphore);
-      xSemaphoreGive(motor2_data.semaphore);
-    } else if ('b') {
-      xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
-      xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
+    motor1_data.i_forward = false;
+    motor2_data.i_forward = false;
 
-      motor1_data.i_forward = false;
-      motor1_data.i_backward = true;
-
-      motor2_data.i_forward = false;
-      motor2_data.i_backward = true; 
-
-      motor1_data.change = true;
-      motor2_data.change = true;
-
-      xSemaphoreGive(motor1_data.semaphore);
-      xSemaphoreGive(motor2_data.semaphore);
+    turning++;
+    if (turning >= 120) { 
+      stepss = 0;
+      turning = 0;
     }
   }
 
-
   // Declaration of variables
-  TOFSensorData tof_data = { 0, 0 };
-  MagnetoSensorData magneto_data = {0, 0, 0};
+  struct TOFSensorData tof_data;
+  struct MagnetoSensorData magneto_data;
+  struct robot_pos_t  robot_data;
 
-  // Serial.println("Dit print elke 3 seconde!");
 
   if (tof_sensor_data_queue != nullptr) {
     // Get data from buffer
-    xQueueReceive(tof_sensor_data_queue, &tof_data, 50);
-
-    // Serial.print("Distance: ");
-    // Serial.println(tof_data.distance);
+    while (xQueueReceive(tof_sensor_data_queue, &tof_data, 00)) {
+      slam_tof_data.push_back(tof_data);
+    }
   }
 
   if (magneto_sensor_data_queue != nullptr) {
-    xQueueReceive(magneto_sensor_data_queue, &magneto_data, 50);
+    while (xQueueReceive(magneto_sensor_data_queue, &magneto_data, 0)) {
+      slam_magneto_data.push_back(magneto_data);
+    }
   }
 
-  struct SlamMapData robot_coord = get_robot_coord();
+  if (robot_pos_queue != nullptr) {
+    while (xQueueReceive(robot_pos_queue, &robot_data, 0)) {
+      slam_pos_data.push_back(robot_data);
+    }
+  }
 
   if (mqtt_data_queue != nullptr) {
     char buffer[256];
     memset(buffer, 0, 256);
 
-    snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%d, %d], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d } }", DEVICE_NAME, "", robot_coord.x_coord, robot_coord.y_coord, "", 1, tof_data.distance, magneto_data.degree);
+    snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, "", robot_data.pos.x_coord, robot_data.pos.y_coord, "searching", 1, tof_data.distance, magneto_data.degree, tof_data.degree);
     // snprintf(buffer, 256, "Distance: %d mm, Rotation: %d degrees", tof_data.distance, tof_data.degree);
     // snprintf(buffer, 256, "HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
     xQueueSend(mqtt_data_queue, buffer, 10);
   }
 
-  // update_map();
+  // Serial.print("Len of tof buffer: ");
+  // Serial.println(slam_tof_data.size());
 
+  // Serial.print("Len of magneto buffer: ");
+  // Serial.println(slam_magneto_data.size());
 
+  // Serial.print("Len of pos buffer: ");
+  // Serial.println(slam_pos_data.size());
 
-  // Serial.println("test");
+  // Update slam map
+  update_map(&slam_magneto_data, &slam_tof_data, &slam_pos_data);
+
+  // limit loop at 100000hz
+  delayMicroseconds(100000);
 }

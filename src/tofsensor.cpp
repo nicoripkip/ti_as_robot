@@ -66,36 +66,38 @@ void tof_sensor_task(void* param)
         while (1)  delay(10);
     }
     Serial.println(F("Ranging started"));
-    vl53.setTimingBudget(20);
+    vl53.setTimingBudget(10);
     Serial.print(F("Timing budget (ms): "));
     Serial.println(vl53.getTimingBudget());
 
     i2c_give_semaphore(1);
 
     // Setup buffers
-    tof_sensor_data_queue = xQueueCreate(10, sizeof(struct TOFSensorData));
+    tof_sensor_data_queue = xQueueCreate(300, sizeof(struct TOFSensorData));
+
+    uint32_t ms;
 
     while (true) {
+        // ms = millis();
+
         struct TOFSensorData tof_data;
         bool err;
 
         err = i2c_take_semaphore(1);
-        if (!err) continue; 
+        if (err) {
 
-        tof_data.distance = vl53.distance();
-        tof_data.degree = tellen;
+            tof_data.distance = vl53.distance();
+            tof_data.degree = tellen;
+            tof_data.scan_interval = micros();
 
-        i2c_give_semaphore(1);
+            i2c_give_semaphore(1);
+        } 
 
         if (tof_data.distance == -1) {
             // something went wrong!
             Serial.print(F("Couldn't get distance: "));
             Serial.println(vl53.vl_status);
-        } else {
-            // Serial.print(F("Distance: "));
-            // Serial.print(tof_data.distance);
-            // Serial.println(" mm");
-        }
+        } 
 
         if (turn_left) {
             if ( tellen >= MAX_TURN_RANGE) {
@@ -104,9 +106,7 @@ void tof_sensor_task(void* param)
             } else {
                 tellen++;
             }
-        }
-
-        if (turn_right) {
+        } else if (turn_right) {
             if (tellen <= 0) {
                 turn_left = true;
                 turn_right = false;
@@ -118,7 +118,10 @@ void tof_sensor_task(void* param)
         ledcWrite(SERVO_TOF_SENSOR_PWM_CHANNEL, turn_servo(tellen));
 
         if (tof_sensor_data_queue != nullptr) {
-            xQueueSend(tof_sensor_data_queue, &tof_data, 10);
+            xQueueSend(tof_sensor_data_queue, &tof_data, 00);
         }
+
+        // Serial.print("Time to take scan: ");
+        // Serial.println(millis() - ms, DEC);
     }
 }
