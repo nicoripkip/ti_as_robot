@@ -51,6 +51,8 @@ float convert_polar_y_to_cartesian_y(float distance, float phi)
 }
 
 
+
+
 /**
  * @brief Function that will init the map in which all the slam data is stored
  * 
@@ -156,6 +158,7 @@ struct robot_pos_t update_robot_coord(uint16_t steps, uint16_t rotation)
     robot_pos.pos.x_coord = prev_pos.pos.x_coord + dx;
     robot_pos.pos.y_coord = prev_pos.pos.y_coord + dy;
     robot_pos.rotation = rotation;
+    robot_pos.scan_interval = micros();
 
     // Push location into the robot position vector
     prev_pos = robot_pos;

@@ -264,6 +264,10 @@ void motor_task(void *param)
             update_coord = false;
             robot_pos = update_robot_coord(steps, magneto_rotation);
             steps = 0;
+
+            if (robot_pos_queue != nullptr) {
+                xQueueSend(robot_pos_queue, &robot_pos, 10);
+            }
         }
 
         // Do some control over the direction of the robot
@@ -285,10 +289,6 @@ void motor_task(void *param)
 
             // validate_motor_direction(&motor1_data, MOTOR_LEFT_DIRECTION_PIN);
             // validate_motor_direction(&motor2_data, MOTOR_RIGHT_DIRECTION_PIN);
-        }
-
-        if (robot_pos_queue != nullptr) {
-            xQueueSend(robot_pos_queue, &robot_pos, 10);
         }
     }
 }
