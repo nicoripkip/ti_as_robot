@@ -12,6 +12,7 @@
 #include "i2chandler.hpp"
 #include "magnetosensor.hpp"
 #include <vector>
+#include "display.hpp"
 
 
 std::vector<struct MagnetoSensorData> slam_magneto_data;
@@ -25,6 +26,7 @@ TaskHandle_t bluetooth_task_ptr;
 TaskHandle_t tof_sensor_task_ptr;
 TaskHandle_t camera_sensor_task_ptr;
 TaskHandle_t magneto_sensor_task_ptr;
+TaskHandle_t display_task_ptr;
 
 int stepss = 0;
 int turning = 0;
@@ -109,19 +111,21 @@ void setup()
   if (ENABLE_DEBUGGING) Serial.begin(DEVICE_BAUD_RATE);
 
   // Enable pins as i2c pins
-  if (ENABLE_I2C_BUS_1) i2c_init(1, I2C_BUS_1_SDA_PIN, I2C_SDL_1_SCL_PIN);
-  if (ENABLE_I2C_BUS_2) i2c_init(2, I2C_BUS_2_SDA_PIN, I2C_BUS_2_SDL_PIN);
+  if (ENABLE_I2C_BUS_1) i2c_init(1, I2C_BUS_1_SDA_PIN, I2C_BUS_1_SCL_PIN);
+  if (ENABLE_I2C_BUS_2) i2c_init(2, I2C_BUS_2_SCL_PIN, I2C_BUS_2_SDA_PIN); // scl=42, sda=41
 
   // Init slam
   init_map();
 
-  // Register all tasks needed for the bot to work
+  Register all tasks needed for the bot to work
   xTaskCreatePinnedToCore(motor_task, "Motor Task", MIN_TASK_STACK_SIZE, NULL, 1, &motor_task_ptr, 1);
   xTaskCreatePinnedToCore(network_task, "Network Task", MIN_TASK_STACK_SIZE, NULL, 1, &network_task_ptr, 1);
   xTaskCreatePinnedToCore(bluetooth_task, "Bluetooth Task", MIN_TASK_STACK_SIZE, NULL, 1, &bluetooth_task_ptr, 1);
   xTaskCreatePinnedToCore(tof_sensor_task, "TOF Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &tof_sensor_task_ptr, 1);
   xTaskCreatePinnedToCore(camera_sensor_task, "Camera Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &camera_sensor_task_ptr, 1);
   xTaskCreatePinnedToCore(magneto_sensor_task, "Magneto Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &magneto_sensor_task_ptr, 1);
+  
+  xTaskCreatePinnedToCore(display_task, "Display Task", MIN_TASK_STACK_SIZE, NULL, 1, &display_task_ptr, 1);
 
   motor1_data.i_run = true;
   motor2_data.i_run = true;      

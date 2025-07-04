@@ -19,22 +19,37 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire1, -1);
  * 
  * @param param
  */
+void displayText(int x, int y, const String& text, int textSize = 1) {
+    display.setTextSize(textSize);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(x, y);
+    display.println(text);
+}
+
 void display_task(void* param)
 {
-    // Configure these btns with their respective pulldown resistors so i dont have to care about these
-    // Pin 1 is for navigating the options on the display
-    // Pin 2 is for pressing ok to select an option on the display
-    pinMode(BTN_PIN_1, INPUT_PULLDOWN);
-    pinMode(BTN_PIN_2, INPUT_PULLDOWN);
-
-    // Initialize display for configuration
     bool errd = display.begin(SSD1306_SWITCHCAPVCC, OLED_DISPLAY_ADDRESS);
-    if (!errd) Serial.println("Can't initialize display!");
+    if (!errd) {
+        Serial.println("Can't initialize display!");
+        vTaskDelete(NULL);
+        return;
+    }
 
-    // Wait 2 seconds for the display to initialize
+    display.clearDisplay();
+    displayText(0, 0, "Display Ready!");
+    display.display();
     delay(2000);
+    Serial.println("display ready!");
 
     while (true) {
         display.clearDisplay();
+
+        // Example dynamic update
+        displayText(0, 0, "Hello again!");
+        display.display();
+
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
+
+

@@ -1,5 +1,5 @@
-#ifndef TI_AS_TOFSENSOR_HPP
-#define TI_AS_TOFSENSOR_HPP
+#ifndef TI_AS_DISPLAY_HPP
+#define TI_AS_DISPLAY_HPP
 
 
 void display_task(void* param);
