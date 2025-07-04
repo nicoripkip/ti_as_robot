@@ -65,6 +65,7 @@ void tof_sensor_task(void* param)
         Serial.println(vl53.vl_status);
         while (1)  delay(10);
     }
+
     Serial.println(F("Ranging started"));
     vl53.setTimingBudget(10);
     Serial.print(F("Timing budget (ms): "));
@@ -73,13 +74,11 @@ void tof_sensor_task(void* param)
     i2c_give_semaphore(1);
 
     // Setup buffers
-    tof_sensor_data_queue = xQueueCreate(300, sizeof(struct TOFSensorData));
+    tof_sensor_data_queue = xQueueCreate(100, sizeof(struct TOFSensorData));
 
     uint32_t ms;
 
     while (true) {
-        // ms = millis();
-
         struct TOFSensorData tof_data;
         bool err;
 
@@ -104,24 +103,21 @@ void tof_sensor_task(void* param)
                 turn_left = false;
                 turn_right = true;
             } else {
-                tellen++;
+                tellen += 2;
             }
         } else if (turn_right) {
             if (tellen <= 0) {
                 turn_left = true;
                 turn_right = false;
             } else {
-                tellen--;
+                tellen -= 2;
             }
         }
 
         ledcWrite(SERVO_TOF_SENSOR_PWM_CHANNEL, turn_servo(tellen));
 
         if (tof_sensor_data_queue != nullptr) {
-            xQueueSend(tof_sensor_data_queue, &tof_data, 00);
+            xQueueSend(tof_sensor_data_queue, &tof_data, 0);
         }
-
-        // Serial.print("Time to take scan: ");
-        // Serial.println(millis() - ms, DEC);
     }
 }

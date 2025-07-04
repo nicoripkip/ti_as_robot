@@ -246,7 +246,7 @@ void motor_task(void *param)
     digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, LOW);
 
     // Init motor pos buffer
-    robot_pos_queue = xQueueCreate(300, sizeof(struct robot_pos_t));
+    robot_pos_queue = xQueueCreate(100, sizeof(struct robot_pos_t));
 
     // init timer
     timer = timerBegin(0, 80, true);

@@ -14,9 +14,8 @@
 #include <vector>
 
 
-std::vector<struct MagnetoSensorData> slam_magneto_data;
-std::vector<struct TOFSensorData> slam_tof_data;
-std::vector<struct robot_pos_t> slam_pos_data; 
+struct TOFSensorData slam_tof_data[100];
+struct robot_pos_t slam_pos_data[100]; 
 
 
 TaskHandle_t motor_task_ptr;
@@ -127,9 +126,6 @@ void setup()
   motor2_data.i_run = true;      
   
   // Setup buffers
-  slam_magneto_data.reserve(300);
-  slam_pos_data.reserve(300);
-  slam_tof_data.reserve(300);
 }
 
 
@@ -139,10 +135,12 @@ void setup()
  */
 void loop()
 {
+  uint16_t tsp = 0;
+  uint16_t psp = 0;
+
   // Make sure all buffers are empty
-  slam_magneto_data.clear();
-  slam_pos_data.clear();
-  slam_tof_data.clear();
+  memset(slam_pos_data, 0, 100);
+  memset(slam_tof_data, 0, 100);
 
   // Search path for the robot
   if (stepss < 300) {
@@ -169,26 +167,22 @@ void loop()
 
   // Declaration of variables
   struct TOFSensorData tof_data;
-  struct MagnetoSensorData magneto_data;
   struct robot_pos_t  robot_data;
 
 
   if (tof_sensor_data_queue != nullptr) {
     // Get data from buffer
-    while (xQueueReceive(tof_sensor_data_queue, &tof_data, 00)) {
-      slam_tof_data.push_back(tof_data);
+    while (xQueueReceive(tof_sensor_data_queue, &tof_data, 0)) {
+      slam_tof_data[tsp] = tof_data;
+      tsp++;
     }
   }
 
-  if (magneto_sensor_data_queue != nullptr) {
-    while (xQueueReceive(magneto_sensor_data_queue, &magneto_data, 0)) {
-      slam_magneto_data.push_back(magneto_data);
-    }
-  }
 
   if (robot_pos_queue != nullptr) {
     while (xQueueReceive(robot_pos_queue, &robot_data, 0)) {
-      slam_pos_data.push_back(robot_data);
+      slam_pos_data[psp] = robot_data;
+      psp++;
     }
   }
 
@@ -196,7 +190,7 @@ void loop()
     char buffer[256];
     memset(buffer, 0, 256);
 
-    snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, "", robot_data.pos.x_coord, robot_data.pos.y_coord, "searching", 1, tof_data.distance, magneto_data.degree, tof_data.degree);
+    snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, "", robot_data.pos.x_coord, robot_data.pos.y_coord, "searching", 1, tof_data.distance, robot_data.rotation, tof_data.degree);
     // snprintf(buffer, 256, "Distance: %d mm, Rotation: %d degrees", tof_data.distance, tof_data.degree);
     // snprintf(buffer, 256, "HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
@@ -204,16 +198,13 @@ void loop()
   }
 
   // Serial.print("Len of tof buffer: ");
-  // Serial.println(slam_tof_data.size());
-
-  // Serial.print("Len of magneto buffer: ");
-  // Serial.println(slam_magneto_data.size());
+  // Serial.println(tsp);
 
   // Serial.print("Len of pos buffer: ");
-  // Serial.println(slam_pos_data.size());
+  // Serial.println(psp);
 
   // Update slam map
-  update_map(&slam_magneto_data, &slam_tof_data, &slam_pos_data);
+  update_map(slam_tof_data, slam_pos_data, tsp, psp);
 
   // limit loop at 100000hz
   delayMicroseconds(100000);
