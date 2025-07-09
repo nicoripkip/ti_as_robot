@@ -16,6 +16,14 @@ bool            mqtt_connected;
 bool            wifi_connected;
 
 
+WebsocketsClient wsClients[MAX_WS_CLIENTS];
+bool wsConnectedFlags[MAX_WS_CLIENTS];
+unsigned long lastReconnectAttempt = 0;
+int wsRetryCount = 0;
+const int wsMaxRetries = 15;
+const unsigned long wsRetryInterval = 1000;
+
+
 /**
  * @brief Callback function to capture all mqtt data from the server
  * 
@@ -120,6 +128,52 @@ void init_mqtt()
 }
 
 
+void onWebSocketEvent(int index, WebsocketsEvent event, String data)
+{
+    switch (event)
+    {
+        case WebsocketsEvent::ConnectionOpened:
+            Serial.printf("WebSocket[%d] Connected!\n", index);
+            wsConnectedFlags[index] = true;
+            break;
+        case WebsocketsEvent::ConnectionClosed:
+            Serial.printf("WebSocket[%d] Disconnected!\n", index);
+            wsConnectedFlags[index] = false;
+            break;
+        default:
+            break;
+    }
+}
+
+
+void init_websockets()
+{
+    for (int i = 0; i < MAX_WS_CLIENTS; ++i)
+    {
+        // Bind index to callback
+        wsClients[i].onEvent([i](WebsocketsEvent event, String data) {
+            onWebSocketEvent(i, event, data);
+        });
+
+        String url = String("ws://") + WS_SERVER_HOST + ":" + String(WS_SERVER_PORT) + "/ws";
+
+        // Add custom header only if i > 0
+        String clientId = String(DEVICE_NAME);
+        if (i > 0) {
+            clientId = String(DEVICE_NAME) + String(i);  // e.g., robot_luco1
+        }
+        wsClients[i].addHeader("X-Client-ID", clientId);
+
+        if (wsClients[i].connect(url)) {
+            Serial.printf("WebSocket[%d] connected to: %s\n", i, url.c_str());
+        } else {
+            Serial.printf("WebSocket[%d] FAILED to connect to: %s\n", i, url.c_str());
+        }
+    }
+}
+
+
+
 /**
  * @brief Function to connect to the internet and process any network activity
  * 
@@ -128,6 +182,7 @@ void init_mqtt()
 void network_task(void *param)
 { 
     init_Wifi();
+    if (wifi_connected) init_websockets();
     if (wifi_connected) init_mqtt();
 
     while (true) {
