@@ -12,10 +12,11 @@
 #include "i2chandler.hpp"
 #include "magnetosensor.hpp"
 #include <vector>
+#include "arm.hpp"
 
 
 struct TOFSensorData slam_tof_data[100];
-struct robot_pos_t slam_pos_data[100]; 
+struct robot_pos_t slam_pos_data[200]; 
 
 
 TaskHandle_t motor_task_ptr;
@@ -24,6 +25,8 @@ TaskHandle_t bluetooth_task_ptr;
 TaskHandle_t tof_sensor_task_ptr;
 TaskHandle_t camera_sensor_task_ptr;
 TaskHandle_t magneto_sensor_task_ptr;
+TaskHandle_t arm_task_ptr;
+
 
 int stepss = 0;
 int turning = 0;
@@ -115,12 +118,13 @@ void setup()
   init_map();
 
   // Register all tasks needed for the bot to work
-  xTaskCreatePinnedToCore(motor_task, "Motor Task", MIN_TASK_STACK_SIZE, NULL, 1, &motor_task_ptr, 1);
-  xTaskCreatePinnedToCore(network_task, "Network Task", MIN_TASK_STACK_SIZE, NULL, 1, &network_task_ptr, 1);
-  xTaskCreatePinnedToCore(bluetooth_task, "Bluetooth Task", MIN_TASK_STACK_SIZE, NULL, 1, &bluetooth_task_ptr, 1);
-  xTaskCreatePinnedToCore(tof_sensor_task, "TOF Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &tof_sensor_task_ptr, 1);
-  xTaskCreatePinnedToCore(camera_sensor_task, "Camera Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &camera_sensor_task_ptr, 1);
-  xTaskCreatePinnedToCore(magneto_sensor_task, "Magneto Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &magneto_sensor_task_ptr, 1);
+  xTaskCreatePinnedToCore(motor_task, "Motor Task", MIN_TASK_STACK_SIZE, NULL, 1, &motor_task_ptr, CORE_NUM_2);
+  xTaskCreatePinnedToCore(network_task, "Network Task", MIN_TASK_STACK_SIZE, NULL, 1, &network_task_ptr, CORE_NUM_2);
+  xTaskCreatePinnedToCore(bluetooth_task, "Bluetooth Task", MIN_TASK_STACK_SIZE, NULL, 1, &bluetooth_task_ptr, CORE_NUM_2);
+  xTaskCreatePinnedToCore(tof_sensor_task, "TOF Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &tof_sensor_task_ptr, CORE_NUM_1);
+  xTaskCreatePinnedToCore(camera_sensor_task, "Camera Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &camera_sensor_task_ptr, CORE_NUM_2);
+  xTaskCreatePinnedToCore(magneto_sensor_task, "Magneto Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &magneto_sensor_task_ptr, CORE_NUM_2);
+  xTaskCreatePinnedToCore(arm_task, "Arm Procedure Task", MIN_TASK_STACK_SIZE, NULL, 1, &arm_task_ptr, CORE_NUM_2);
 
   motor1_data.i_run = true;
   motor2_data.i_run = true;      
@@ -197,11 +201,11 @@ void loop()
     xQueueSend(mqtt_data_queue, buffer, 10);
   }
 
-  // Serial.print("Len of tof buffer: ");
-  // Serial.println(tsp);
+  Serial.print("Len of tof buffer: ");
+  Serial.println(tsp);
 
-  // Serial.print("Len of pos buffer: ");
-  // Serial.println(psp);
+  Serial.print("Len of pos buffer: ");
+  Serial.println(psp);
 
   // Update slam map
   update_map(slam_tof_data, slam_pos_data, tsp, psp);

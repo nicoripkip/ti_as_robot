@@ -141,7 +141,6 @@ bool move_motor_backward()
     digitalWrite(MOTOR_LEFT_DIRECTION_PIN, HIGH);
     digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, HIGH);
 
-
     xSemaphoreGive(motor1_data.semaphore);
     xSemaphoreGive(motor2_data.semaphore);
 
@@ -286,9 +285,6 @@ void motor_task(void *param)
             if (motor1_data.i_turn_right && motor2_data.i_turn_right) {
                 move_motor_right();
             }
-
-            // validate_motor_direction(&motor1_data, MOTOR_LEFT_DIRECTION_PIN);
-            // validate_motor_direction(&motor2_data, MOTOR_RIGHT_DIRECTION_PIN);
         }
     }
 }

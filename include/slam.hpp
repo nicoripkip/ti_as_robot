@@ -38,8 +38,6 @@ void update_map( struct TOFSensorData* slam_tof_data, struct robot_pos_t* slam_p
 
 
 struct robot_pos_t update_robot_coord(uint16_t steps, uint16_t rotation);
-void update_lidar_coord(struct lidar_data_t* data);
-
 
 float convert_polar_x_to_cartesian_x(float distance, float phi);
 float convert_polar_y_to_cartesian_y(float distance, float phi);

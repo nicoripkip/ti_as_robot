@@ -20,7 +20,7 @@ BLA::Matrix<3, 1> x = { 0, 0, 1 };
 
 struct fused_sensor_t 
 {
-    struct TOFSensorData                slam_tof_data[30];
+    struct TOFSensorData                slam_tof_data[100];
     struct robot_pos_t                  slam_pos_data;
     uint16_t                            tlen;
 };
@@ -78,7 +78,7 @@ void update_obstacle_position(struct TOFSensorData* slam_tof_data, struct robot_
 {
     float corrected_tof_theta, corrected_robot_theta, global_theta;
     float obstacle_x, obstacle_y;
-    
+
     corrected_tof_theta = radians(slam_tof_data->degree);
     corrected_robot_theta = radians(slam_pos_data->rotation);
 
@@ -111,12 +111,6 @@ struct fused_sensor_t filter_on_position_time(uint32_t t0, uint32_t t1, struct T
 
     uint32_t i, j;
 
-    for (i = 0; i < 30; i++) {
-        data.slam_tof_data[i].degree = 0;
-        data.slam_tof_data[i].distance = 0;
-        data.slam_tof_data[i].scan_interval = 0;
-    }
-
     j = 0;
     for (i = 0; i < tlen; i++) {
         if (slam_tof_data[i].scan_interval >= t0 && slam_tof_data[i].scan_interval <= t1) {
@@ -125,10 +119,8 @@ struct fused_sensor_t filter_on_position_time(uint32_t t0, uint32_t t1, struct T
         } 
     }
 
+    // Capture the length of the array
     data.tlen = j;
-
-    // Serial.print("Size of tof array: ");
-    // Serial.println(tlen);
 
     return data; 
 }
@@ -176,7 +168,7 @@ void update_map(struct TOFSensorData* slam_tof_data, struct robot_pos_t* slam_po
         return;
     }
 
-    struct fused_sensor_t map_data[100];
+    struct fused_sensor_t map_data[200];
     float dx, dy;
     uint8_t i;
 

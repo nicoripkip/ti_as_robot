@@ -86,6 +86,7 @@ void tof_sensor_task(void* param)
         if (err) {
 
             tof_data.distance = vl53.distance();
+            if (tof_data.distance >= 600) tof_data.distance = infinity();
             tof_data.degree = tellen;
             tof_data.scan_interval = micros();
 
@@ -103,14 +104,14 @@ void tof_sensor_task(void* param)
                 turn_left = false;
                 turn_right = true;
             } else {
-                tellen += 2;
+                tellen += 1;
             }
         } else if (turn_right) {
             if (tellen <= 0) {
                 turn_left = true;
                 turn_right = false;
             } else {
-                tellen -= 2;
+                tellen -= 1;
             }
         }
 
@@ -119,5 +120,7 @@ void tof_sensor_task(void* param)
         if (tof_sensor_data_queue != nullptr) {
             xQueueSend(tof_sensor_data_queue, &tof_data, 0);
         }
+
+        delay(1);
     }
 }
