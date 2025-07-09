@@ -40,7 +40,7 @@ void camera_sensor_task(void* param)
                 
             
             if (bytesRead != len) {
-                Serial.printf("[error] Expected %u bytes, but got %u bytes\n", len, bytesRead);
+                // Serial.printf("[error] Expected %u bytes, but got %u bytes\n", len, bytesRead);
                 free(image);
                 continue;
             }
@@ -54,9 +54,9 @@ void camera_sensor_task(void* param)
             for (int i = 0; i < MAX_WS_CLIENTS; ++i) {
                 if (wsConnectedFlags[i]) {
                     wsClients[i].sendBinary((const char*)image, len);
-                    Serial.printf("Image sent over WebSocket[%d].\n", i);
+                    // Serial.printf("Image sent over WebSocket[%d].\n", i);
                 } else {
-                    Serial.printf("WebSocket[%d] not connected - image not sent.\n", i);
+                    // Serial.printf("WebSocket[%d] not connected - image not sent.\n", i);
                 }
             }
 
@@ -67,6 +67,6 @@ void camera_sensor_task(void* param)
             while (ESP_CAM_SERIAL.available()) ESP_CAM_SERIAL.read(); // flush garbage
         }
 
-        vTaskDelay(50 / portTICK_PERIOD_MS);  // small delay before next request
+        vTaskDelay(150 / portTICK_PERIOD_MS);  // small delay before next request
     }
 }

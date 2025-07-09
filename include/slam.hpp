@@ -35,6 +35,7 @@ enum slam_map_data_t
 
 void init_map();
 void update_map( struct TOFSensorData* slam_tof_data, struct robot_pos_t* slam_pos_data, uint16_t tlen, uint16_t plen);
+void upload_map();
 
 
 struct robot_pos_t update_robot_coord(uint16_t steps, uint16_t rotation);

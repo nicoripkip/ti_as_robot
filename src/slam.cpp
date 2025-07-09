@@ -1,6 +1,7 @@
 #include "slam.hpp"
 #include <Arduino.h>
 #include "BasicLinearAlgebra.h"
+#include "buffers.hpp"
 
 
 const uint32_t map_width = 20;
@@ -87,7 +88,18 @@ void update_obstacle_position(struct TOFSensorData* slam_tof_data, struct robot_
     obstacle_x = slam_pos_data->pos.x_coord + (convert_polar_x_to_cartesian_x(slam_tof_data->distance, global_theta) / cell_size_mm);
     obstacle_y = slam_pos_data->pos.y_coord + (convert_polar_y_to_cartesian_y(slam_tof_data->distance, global_theta) / cell_size_mm);
 
-    internal_map[(uint16_t)obstacle_x][(uint16_t)obstacle_y] = SLAM_COORD_OCCUPIED;
+    uint16_t coord_x = (uint16_t)floor(obstacle_x) + 10;
+    uint16_t coord_y = (uint16_t)floor(obstacle_y) + 10;
+
+    // Make sure coord x is clamped between 0 -> map width
+    if (coord_x < 0) coord_x = 0;
+    else if (coord_x > map_width) coord_x = map_width;
+
+    // Make sure coord y is clamped between 0 -> map height
+    if (coord_y < 0) coord_y = 0;
+    else if (coord_y > map_height) coord_y = map_height;
+    
+    internal_map[coord_x][coord_y] = SLAM_COORD_OCCUPIED;
 }
 
 
@@ -114,13 +126,17 @@ struct fused_sensor_t filter_on_position_time(uint32_t t0, uint32_t t1, struct T
     j = 0;
     for (i = 0; i < tlen; i++) {
         if (slam_tof_data[i].scan_interval >= t0 && slam_tof_data[i].scan_interval <= t1) {
-            data.slam_tof_data[j] = slam_tof_data[i];
+            data.slam_tof_data[j].degree = slam_tof_data[i].degree;
+            data.slam_tof_data[j].distance = slam_tof_data[i].distance;
+            data.slam_tof_data[j].scan_interval = slam_tof_data[i].scan_interval;
             j++;
         } 
     }
 
     // Capture the length of the array
     data.tlen = j;
+
+    
 
     return data; 
 }
@@ -142,12 +158,16 @@ void update_map_with_fused_data(struct fused_sensor_t* fused_data, uint16_t fuse
     uint16_t i, j;
     
     for (i = 0; i < fused_len; i++) {
-        for (j = 0; j < fused_data[i].tlen; j++) {
-            update_obstacle_position(&fused_data[i].slam_tof_data[j], &fused_data[i].slam_pos_data);
-        }
+
+        // Serial.print("Yo mama: ");
+        // Serial.println(fused_data[i].tlen);
+
+        // for (j = 0; j < fused_data[i].tlen; j++) {
+        //     update_obstacle_position(&fused_data[i].slam_tof_data[j], &fused_data[i].slam_pos_data);
+        // }
     }
 }
-
+  
 
 /**
  * @brief This function will update the map according to new information given
@@ -168,7 +188,7 @@ void update_map(struct TOFSensorData* slam_tof_data, struct robot_pos_t* slam_po
         return;
     }
 
-    struct fused_sensor_t map_data[200];
+    static struct fused_sensor_t map_data[50];
     float dx, dy;
     uint8_t i;
 
@@ -177,7 +197,10 @@ void update_map(struct TOFSensorData* slam_tof_data, struct robot_pos_t* slam_po
         struct fused_sensor_t sensor_point;
 
         sensor_point = filter_on_position_time(slam_pos_data[i].scan_interval, slam_pos_data[i+1].scan_interval, slam_tof_data, tlen);
-        sensor_point.slam_pos_data = slam_pos_data[i];
+        sensor_point.slam_pos_data.pos = slam_pos_data[i].pos;
+        sensor_point.slam_pos_data.rotation = slam_pos_data[i].rotation;
+        sensor_point.slam_pos_data.scan_interval = slam_pos_data[i].scan_interval;
+        
         map_data[i] = sensor_point;
     }
 
@@ -237,4 +260,20 @@ struct robot_pos_t update_robot_coord(uint16_t steps, uint16_t rotation)
     // Push location into the robot position vector
     prev_pos = robot_pos;
     return robot_pos;
+}
+
+
+void upload_map()
+{
+    if (mqtt_map_queue != nullptr) {
+        String buffer = "";
+
+        for (uint8_t i = 0; i < map_height; i++) {
+            for (uint8_t j = 0; j < map_width; j++) {
+                buffer += String(internal_map[i][j]);
+            }
+        }
+        
+        xQueueSend(mqtt_map_queue, buffer.c_str(), 0);
+    }
 }

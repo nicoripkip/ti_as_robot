@@ -125,6 +125,7 @@ void init_mqtt()
     // Setup MQTT buffers
     mqtt_data_queue = xQueueCreate(10, sizeof(char) * 256);
     logger_queue = xQueueCreate(100, sizeof(char) * 256);
+    // mqtt_map_queue = xQueueCreate(10, sizeof(char) * 450);
 }
 
 
@@ -133,18 +134,45 @@ void onWebSocketEvent(int index, WebsocketsEvent event, String data)
     switch (event)
     {
         case WebsocketsEvent::ConnectionOpened:
-            Serial.printf("WebSocket[%d] Connected!\n", index);
+            Serial.printf("[EVENT] WebSocket[%d] Connected!\n", index);
             wsConnectedFlags[index] = true;
             break;
+
         case WebsocketsEvent::ConnectionClosed:
-            Serial.printf("WebSocket[%d] Disconnected!\n", index);
+            Serial.printf("[EVENT] WebSocket[%d] Disconnected!\n", index);
             wsConnectedFlags[index] = false;
             break;
+
+        case WebsocketsEvent::GotPing:
+            Serial.printf("[EVENT] WebSocket[%d] Got PING\n", index);
+            break;
+
+        case WebsocketsEvent::GotPong:
+            Serial.printf("[EVENT] WebSocket[%d] Got PONG\n", index);
+            break;
+
+
         default:
+            Serial.printf("[EVENT] WebSocket[%d] Unknown event: %d, data: %s\n", index, (int)event, data.c_str());
             break;
     }
 }
 
+void onWebSocketMessage(int i, WebsocketsMessage msg)
+{
+    if (msg.isText()) {
+        String text = msg.data();
+        Serial.printf("WebSocket[%d] Received text: %s\n", i, text.c_str());
+
+        if (text == "DETECTED") {
+            Serial.printf("WebSocket[%d] Detected object!\n", i);
+            // You can trigger GPIO, LED, etc. here
+        }
+    } else if (msg.isBinary()) {
+        Serial.printf("WebSocket[%d] Received binary (%d bytes)\n", i, msg.length());
+        // Handle image stream, etc.
+    }
+}
 
 void init_websockets()
 {
@@ -153,6 +181,10 @@ void init_websockets()
         // Bind index to callback
         wsClients[i].onEvent([i](WebsocketsEvent event, String data) {
             onWebSocketEvent(i, event, data);
+        });
+
+        wsClients[i].onMessage([i](WebsocketsMessage msg) {
+            onWebSocketMessage(i, msg);
         });
 
         String url = String("ws://") + WS_SERVER_HOST + ":" + String(WS_SERVER_PORT) + "/ws";
@@ -172,35 +204,68 @@ void init_websockets()
     }
 }
 
-
-
 /**
  * @brief Function to connect to the internet and process any network activity
- * 
+ *
  * @param param
  */
-void network_task(void *param)
-{ 
+
+
+void network_task(void* param)
+{
     init_Wifi();
-    if (wifi_connected) init_websockets();
-    if (wifi_connected) init_mqtt();
+    if (wifi_connected)
+        init_mqtt();
+    if (wifi_connected)
+        init_websockets();
 
-    while (true) {
-        if (wifi_connected && mqtt_connected) {
+    while (true)
+    {
+        if (wifi_connected && mqtt_connected)
+        {
+            // MQTT message sending
             char message[256];
-            memset(message, 0, 256);
-
-            // Process of sending data 
             if (uxQueueMessagesWaiting(mqtt_data_queue) > 0) {
                 xQueueReceive(mqtt_data_queue, &message, 50);
-
                 mqtt_client.publish("/robot", message);
             }
 
-            // Make sure client is always looped
             mqtt_client.loop();
         }
+        else {
+            Serial.println("MQTT or WebSocket not connected!");
+        }
+
+        for (int i = 0; i < MAX_WS_CLIENTS; ++i)
+        {
+            wsClients[i].poll();
+            if (!wsConnectedFlags[i] && wsRetryCount < wsMaxRetries)
+            {
+                unsigned long now = millis();
+                if (now - lastReconnectAttempt >= wsRetryInterval)
+                {
+                    String url = String("ws://") + WS_SERVER_HOST + ":" + String(WS_SERVER_PORT) + "/ws?id=" + String(i);
+                    Serial.printf("WebSocket[%d] Reconnect attempt %d/%d\n", i, wsRetryCount + 1, wsMaxRetries);
+
+                    if (wsClients[i].connect(url))
+                    {
+                        Serial.printf("WebSocket[%d] Reconnected!\n", i);
+                        wsConnectedFlags[i] = true;
+                    }
+                    else
+                    {
+                        Serial.printf("WebSocket[%d] Reconnect failed.\n", i);
+                    }
+                    lastReconnectAttempt = now;
+                    wsRetryCount++;
+                }
+            }
+        }
+
+
+
+        vTaskDelay(50 / portTICK_PERIOD_MS);  // small delay before next request
+
     }
 }
-
 

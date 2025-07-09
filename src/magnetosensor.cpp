@@ -187,8 +187,13 @@ void magneto_sensor_task(void* param)
 
     while (!err) err = i2c_take_semaphore(1);
 
-    while (!compass.begin());
+    while (!compass.begin()) {
+        Serial.println("Cant init magneto sensor");
+        delay(10);
+    }
 
+     Serial.println("init magneto sensor");
+        float declinationAngle = (1.0 + (0.0 / 60.0)) * (PI / 180.0);
     if (compass.isQMC()) {
         compass.setRange(QMC5883_RANGE_2GA);
         compass.setMeasurementMode(QMC5883_CONTINOUS);
@@ -196,11 +201,18 @@ void magneto_sensor_task(void* param)
         compass.setDataRate(QMC5883_DATARATE_100HZ);
 
         compass.setSamples(QMC5883_SAMPLES_8);
+
+        compass.setDeclinationAngle(declinationAngle);
     }
 
     i2c_give_semaphore(1);
 
-    while (true) {
+    // Calibrate compass sensor
+    while (!err) err = i2c_take_semaphore(1);
+
+    i2c_give_semaphore(1);
+
+    while (true) { 
         // int16_t x, y, z;
         struct MagnetoSensorData data;
         sVector_t mag;
@@ -213,26 +225,32 @@ void magneto_sensor_task(void* param)
 
 
         // Declination angle for the netherlands
-        float declinationAngle = (1.0 + (0.0 / 60.0)) * (PI / 180.0);
+
 
         if (i2c_take_semaphore(1)) {
-            compass.setDeclinationAngle(declinationAngle);
+            
             mag = compass.readRaw();
 
             i2c_give_semaphore(1);
         }
 
-        float rads = atan2(mag.XAxis, mag.YAxis);
+        float rads = atan2(-mag.YAxis, mag.XAxis);
         rads += declinationAngle;
         float degs = degrees(rads);
+        degs + 40;
         if (degs < 0) degs += 360;
+        // if (degs >= 360) degs -= 360;
 
         data.measure_x = mag.XAxis;
         data.measure_y = mag.YAxis;
         data.measure_z = mag.ZAxis;
 
-        data.degree = exponential_filter(0.5, degs, magneto_rotation);
+        // data.degree = exponential_filter(0.5, degs, magneto_rotation);
+        data.degree = degs;
         data.scan_interval = micros();
+
+        // Serial.print("Magneto data: ");
+        // Serial.println(data.degree);
 
         magneto_rotation = data.degree;
 

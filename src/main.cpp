@@ -195,20 +195,19 @@ void loop()
     memset(buffer, 0, 256);
 
     snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, "", robot_data.pos.x_coord, robot_data.pos.y_coord, "searching", 1, tof_data.distance, robot_data.rotation, tof_data.degree);
-    // snprintf(buffer, 256, "Distance: %d mm, Rotation: %d degrees", tof_data.distance, tof_data.degree);
-    // snprintf(buffer, 256, "HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
     xQueueSend(mqtt_data_queue, buffer, 10);
   }
 
-  Serial.print("Len of tof buffer: ");
-  Serial.println(tsp);
+  // Serial.print("Len of tof buffer: ");
+  // Serial.println(tsp);
 
-  Serial.print("Len of pos buffer: ");
-  Serial.println(psp);
+  // Serial.print("Len of pos buffer: ");
+  // Serial.println(psp);
 
   // Update slam map
   update_map(slam_tof_data, slam_pos_data, tsp, psp);
+  // upload_map();
 
   // limit loop at 100000hz
   delayMicroseconds(100000);
