@@ -12,7 +12,7 @@ QueueHandle_t tof_sensor_data_queue;
 QueueHandle_t magneto_sensor_data_queue;
 QueueHandle_t logger_queue;
 QueueHandle_t robot_pos_queue;
-
+QueueHandle_t image_data_queue = nullptr;
 
 /**
  * @brief Register here all motor data

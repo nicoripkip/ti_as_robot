@@ -1,9 +1,17 @@
 #ifndef TI_AS_BUFFERS_HPP
 #define TI_AS_BUFFERS_HPP
 
-
+#include "config.hpp"
 #include <Arduino.h>
 #include "motor.hpp"
+
+
+typedef struct {
+    uint16_t len;
+    uint8_t* data;
+} image_packet_t;
+extern QueueHandle_t image_data_queue;
+
 
 
 extern QueueHandle_t    color_sensor_queue;

@@ -8,59 +8,67 @@
 #include "buffers.hpp"
 #include <esp_wifi.h>
 
-
 // Static globals needed for this file
-WiFiClient      wifi_client;
-PubSubClient    mqtt_client;
-bool            mqtt_connected;
-bool            wifi_connected;
+WiFiClient wifi_client;
+PubSubClient mqtt_client;
+bool mqtt_connected;
+bool wifi_connected;
 
+WebsocketsClient wsClients[MAX_WS_CLIENTS];
+bool wsConnectedFlags[MAX_WS_CLIENTS];
+unsigned long lastReconnectAttempt = 0;
+int wsRetryCount = 0;
+const int wsMaxRetries = 15;
+const unsigned long wsRetryInterval = 1000;
 
 /**
  * @brief Callback function to capture all mqtt data from the server
- * 
+ *
  * @param topic
  * @param payload
  * @param length
  */
-void mqtt_callback(const char* topic, byte* payload, unsigned int length)
+void mqtt_callback(const char *topic, byte *payload, unsigned int length)
 {
-    if (strcmp(topic, "/hmi2robot") == 0) {
+    if (strcmp(topic, "/hmi2robot") == 0)
+    {
         Serial.println("Message received from hmi!");
-    } else if (strcmp(topic, "/hypervisor2robot") == 0) {
+    }
+    else if (strcmp(topic, "/hypervisor2robot") == 0)
+    {
         Serial.println("Message received from hypervisor!");
     }
 }
 
-
 /**
  * @brief Function to detect the macaddress of the ESP32
- * 
+ *
  */
-void read_mac_address(){
+void read_mac_address()
+{
     uint8_t baseMac[6];
-    
+
     // Get MAC address of the WiFi station interface
     esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
     Serial.print("Station MAC: ");
-    for (int i = 0; i < 5; i++) {
-      Serial.printf("%02X:", baseMac[i]);
+    for (int i = 0; i < 5; i++)
+    {
+        Serial.printf("%02X:", baseMac[i]);
     }
     Serial.printf("%02X\n", baseMac[5]);
 }
 
-
 /**
  * @brief Function to initialize the wifi network
- * 
+ *
  */
-void init_Wifi() 
+void init_Wifi()
 {
     read_mac_address();
     wifi_connected = false;
 
     // Before the loop can start, it is required that a stable network connection is needed!
-    // WiFi.setMinSecurity(WIFI_AUTH_WEP); 
+    // WiFi.setMinSecurity(WIFI_AUTH_WEP);
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
@@ -68,16 +76,18 @@ void init_Wifi()
 
     // Try to connect to the network
     uint8_t counter = 0;
-    while (WiFi.status() != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED)
+    {
         Serial.print(".");
         counter++;
         delay(500);
 
-        if (counter >= 100) return;
+        if (counter >= 100)
+            return;
     }
 
     // Serial.println("");
-    // Serial.println("Wifi connected to network!");
+    Serial.println("Wifi connected to network!");
 
     wifi_connected = true;
 
@@ -89,10 +99,9 @@ void init_Wifi()
     configTime(0, (3600 * 2), "ntppool1.time.nl", "ntppool2.time.nl");
 }
 
-
 /**
  * @brief Function to initialize the mqtt server before it can be used
- * 
+ *
  */
 void init_mqtt()
 {
@@ -104,11 +113,13 @@ void init_mqtt()
     mqtt_client.setCallback(mqtt_callback);
 
     // Serial.println("Try to connect to mqtt server!");
-    if (!MQTT_CLIENT_ANONYMOUS) mqtt_connected = mqtt_client.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASS);
-    else mqtt_connected = mqtt_client.connect(MQTT_CLIENT_ID);
+    if (!MQTT_CLIENT_ANONYMOUS)
+        mqtt_connected = mqtt_client.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASS);
+    else
+        mqtt_connected = mqtt_client.connect(MQTT_CLIENT_ID);
 
-    // if (mqtt_connected) Serial.println("Succesfully connected to mqtt server");
-    // else Serial.println("Failed to connect to mqtt server!");
+    if (mqtt_connected) Serial.println("Succesfully connected to mqtt server");
+    else Serial.println("Failed to connect to mqtt server!");
 
     // Subscribe to the rx channels
     mqtt_client.subscribe("/ti/as/hmi2robot");
@@ -119,33 +130,110 @@ void init_mqtt()
     logger_queue = xQueueCreate(100, sizeof(char) * 256);
 }
 
-
-/**
- * @brief Function to connect to the internet and process any network activity
- * 
- * @param param
- */
-void network_task(void *param)
-{ 
-    init_Wifi();
-    if (wifi_connected) init_mqtt();
-
-    while (true) {
-        if (wifi_connected && mqtt_connected) {
-            char message[256];
-            memset(message, 0, 256);
-
-            // Process of sending data 
-            if (uxQueueMessagesWaiting(mqtt_data_queue) > 0) {
-                xQueueReceive(mqtt_data_queue, &message, 50);
-
-                mqtt_client.publish("/robot", message);
-            }
-
-            // Make sure client is always looped
-            mqtt_client.loop();
-        }
+void onWebSocketEvent(int index, WebsocketsEvent event, String data)
+{
+    switch (event)
+    {
+        case WebsocketsEvent::ConnectionOpened:
+            Serial.printf("WebSocket[%d] Connected!\n", index);
+            wsConnectedFlags[index] = true;
+            break;
+        case WebsocketsEvent::ConnectionClosed:
+            Serial.printf("WebSocket[%d] Disconnected!\n", index);
+            wsConnectedFlags[index] = false;
+            break;
+        default:
+            break;
     }
 }
 
 
+void init_websockets()
+{
+    for (int i = 0; i < MAX_WS_CLIENTS; ++i)
+    {
+        // Bind index to callback
+        wsClients[i].onEvent([i](WebsocketsEvent event, String data) {
+            onWebSocketEvent(i, event, data);
+        });
+
+        String url = String("ws://") + WS_SERVER_HOST + ":" + String(WS_SERVER_PORT) + "/ws";
+
+        // Add custom header only if i > 0
+        String clientId = String(DEVICE_NAME);
+        if (i > 0) {
+            clientId = String(DEVICE_NAME) + String(i);  // e.g., robot_luco1
+        }
+        wsClients[i].addHeader("X-Client-ID", clientId);
+
+        if (wsClients[i].connect(url)) {
+            Serial.printf("WebSocket[%d] connected to: %s\n", i, url.c_str());
+        } else {
+            Serial.printf("WebSocket[%d] FAILED to connect to: %s\n", i, url.c_str());
+        }
+    }
+}
+
+/**
+ * @brief Function to connect to the internet and process any network activity
+ *
+ * @param param
+ */
+
+
+void network_task(void* param)
+{
+    init_Wifi();
+    if (wifi_connected)
+        init_mqtt();
+    if (wifi_connected)
+        init_websockets();
+
+    while (true)
+    {
+        if (wifi_connected && mqtt_connected)
+        {
+            // MQTT message sending
+            char message[256];
+            if (uxQueueMessagesWaiting(mqtt_data_queue) > 0) {
+                xQueueReceive(mqtt_data_queue, &message, 50);
+                mqtt_client.publish("/robot", message);
+            }
+
+            mqtt_client.loop();
+        }
+        else {
+            Serial.println("MQTT or WebSocket not connected!");
+        }
+
+        for (int i = 0; i < MAX_WS_CLIENTS; ++i)
+        {
+            if (!wsConnectedFlags[i] && wsRetryCount < wsMaxRetries)
+            {
+                unsigned long now = millis();
+                if (now - lastReconnectAttempt >= wsRetryInterval)
+                {
+                    String url = String("ws://") + WS_SERVER_HOST + ":" + String(WS_SERVER_PORT) + "/ws?id=" + String(i);
+                    Serial.printf("WebSocket[%d] Reconnect attempt %d/%d\n", i, wsRetryCount + 1, wsMaxRetries);
+
+                    if (wsClients[i].connect(url))
+                    {
+                        Serial.printf("WebSocket[%d] Reconnected!\n", i);
+                        wsConnectedFlags[i] = true;
+                    }
+                    else
+                    {
+                        Serial.printf("WebSocket[%d] Reconnect failed.\n", i);
+                    }
+                    lastReconnectAttempt = now;
+                    wsRetryCount++;
+                }
+            }
+        }
+
+
+
+        vTaskDelay(50 / portTICK_PERIOD_MS);  // small delay before next request
+
+    }
+}

@@ -117,13 +117,18 @@ void setup()
   // Init slam
   init_map();
 
-  Register all tasks needed for the bot to work
-  xTaskCreatePinnedToCore(motor_task, "Motor Task", MIN_TASK_STACK_SIZE, NULL, 1, &motor_task_ptr, 1);
+  image_data_queue = xQueueCreate(2, sizeof(image_packet_t));
+if (image_data_queue == nullptr) {
+    Serial.println("[error] Failed to create image_data_queue!");
+}
+
+  //Register all tasks needed for the bot to work
+  // xTaskCreatePinnedToCore(motor_task, "Motor Task", MIN_TASK_STACK_SIZE, NULL, 1, &motor_task_ptr, 1);
   xTaskCreatePinnedToCore(network_task, "Network Task", MIN_TASK_STACK_SIZE, NULL, 1, &network_task_ptr, 1);
-  xTaskCreatePinnedToCore(bluetooth_task, "Bluetooth Task", MIN_TASK_STACK_SIZE, NULL, 1, &bluetooth_task_ptr, 1);
-  xTaskCreatePinnedToCore(tof_sensor_task, "TOF Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &tof_sensor_task_ptr, 1);
-  xTaskCreatePinnedToCore(camera_sensor_task, "Camera Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &camera_sensor_task_ptr, 1);
-  xTaskCreatePinnedToCore(magneto_sensor_task, "Magneto Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &magneto_sensor_task_ptr, 1);
+  // xTaskCreatePinnedToCore(bluetooth_task, "Bluetooth Task", MIN_TASK_STACK_SIZE, NULL, 1, &bluetooth_task_ptr, 1);
+  // xTaskCreatePinnedToCore(tof_sensor_task, "TOF Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &tof_sensor_task_ptr, 1);
+  xTaskCreatePinnedToCore(camera_sensor_task, "Camera Sensor Task", CAMERA_TASK_STACK_SIZE, NULL, 1, &camera_sensor_task_ptr, 0);
+  // xTaskCreatePinnedToCore(magneto_sensor_task, "Magneto Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &magneto_sensor_task_ptr, 1);
   
   xTaskCreatePinnedToCore(display_task, "Display Task", MIN_TASK_STACK_SIZE, NULL, 1, &display_task_ptr, 1);
 
@@ -144,81 +149,81 @@ void setup()
 void loop()
 {
   // Make sure all buffers are empty
-  slam_magneto_data.clear();
-  slam_pos_data.clear();
-  slam_tof_data.clear();
+  // slam_magneto_data.clear();
+  // slam_pos_data.clear();
+  // slam_tof_data.clear();
 
-  // Search path for the robot
-  if (stepss < 300) {
-    motor1_data.i_forward = true;
-    motor1_data.i_forward = true;
+  // // Search path for the robot
+  // if (stepss < 300) {
+  //   motor1_data.i_forward = true;
+  //   motor1_data.i_forward = true;
 
-    motor1_data.i_backward = false;
-    motor2_data.i_backward = false;
+  //   motor1_data.i_backward = false;
+  //   motor2_data.i_backward = false;
 
-    stepss++;
-  } else {
-    motor1_data.i_turn_left = true;
-    motor2_data.i_turn_left = true;
+  //   stepss++;
+  // } else {
+  //   motor1_data.i_turn_left = true;
+  //   motor2_data.i_turn_left = true;
 
-    motor1_data.i_forward = false;
-    motor2_data.i_forward = false;
+  //   motor1_data.i_forward = false;
+  //   motor2_data.i_forward = false;
 
-    turning++;
-    if (turning >= 120) { 
-      stepss = 0;
-      turning = 0;
-    }
-  }
+  //   turning++;
+  //   if (turning >= 120) { 
+  //     stepss = 0;
+  //     turning = 0;
+  //   }
+  // }
 
-  // Declaration of variables
-  struct TOFSensorData tof_data;
-  struct MagnetoSensorData magneto_data;
-  struct robot_pos_t  robot_data;
+  // // Declaration of variables
+  // struct TOFSensorData tof_data;
+  // struct MagnetoSensorData magneto_data;
+  // struct robot_pos_t  robot_data;
 
 
-  if (tof_sensor_data_queue != nullptr) {
-    // Get data from buffer
-    while (xQueueReceive(tof_sensor_data_queue, &tof_data, 00)) {
-      slam_tof_data.push_back(tof_data);
-    }
-  }
+  // if (tof_sensor_data_queue != nullptr) {
+  //   // Get data from buffer
+  //   while (xQueueReceive(tof_sensor_data_queue, &tof_data, 00)) {
+  //     slam_tof_data.push_back(tof_data);
+  //   }
+  // }
 
-  if (magneto_sensor_data_queue != nullptr) {
-    while (xQueueReceive(magneto_sensor_data_queue, &magneto_data, 0)) {
-      slam_magneto_data.push_back(magneto_data);
-    }
-  }
+  // if (magneto_sensor_data_queue != nullptr) {
+  //   while (xQueueReceive(magneto_sensor_data_queue, &magneto_data, 0)) {
+  //     slam_magneto_data.push_back(magneto_data);
+  //   }
+  // }
 
-  if (robot_pos_queue != nullptr) {
-    while (xQueueReceive(robot_pos_queue, &robot_data, 0)) {
-      slam_pos_data.push_back(robot_data);
-    }
-  }
+  // if (robot_pos_queue != nullptr) {
+  //   while (xQueueReceive(robot_pos_queue, &robot_data, 0)) {
+  //     slam_pos_data.push_back(robot_data);
+  //   }
+  // }
 
-  if (mqtt_data_queue != nullptr) {
-    char buffer[256];
-    memset(buffer, 0, 256);
+  // if (mqtt_data_queue != nullptr) {
+  //   char buffer[256];
+  //   memset(buffer, 0, 256);
 
-    snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, "", robot_data.pos.x_coord, robot_data.pos.y_coord, "searching", 1, tof_data.distance, magneto_data.degree, tof_data.degree);
-    // snprintf(buffer, 256, "Distance: %d mm, Rotation: %d degrees", tof_data.distance, tof_data.degree);
-    // snprintf(buffer, 256, "HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+  //   snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, "", robot_data.pos.x_coord, robot_data.pos.y_coord, "searching", 1, tof_data.distance, magneto_data.degree, tof_data.degree);
+  //   // snprintf(buffer, 256, "Distance: %d mm, Rotation: %d degrees", tof_data.distance, tof_data.degree);
+  //   // snprintf(buffer, 256, "HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 
-    xQueueSend(mqtt_data_queue, buffer, 10);
-  }
+  //   xQueueSend(mqtt_data_queue, buffer, 10);
+  // }
 
-  // Serial.print("Len of tof buffer: ");
-  // Serial.println(slam_tof_data.size());
+  // // Serial.print("Len of tof buffer: ");
+  // // Serial.println(slam_tof_data.size());
 
-  // Serial.print("Len of magneto buffer: ");
-  // Serial.println(slam_magneto_data.size());
+  // // Serial.print("Len of magneto buffer: ");
+  // // Serial.println(slam_magneto_data.size());
 
-  // Serial.print("Len of pos buffer: ");
-  // Serial.println(slam_pos_data.size());
+  // // Serial.print("Len of pos buffer: ");
+  // // Serial.println(slam_pos_data.size());
 
-  // Update slam map
-  update_map(&slam_magneto_data, &slam_tof_data, &slam_pos_data);
+  // // Update slam map
+  // update_map(&slam_magneto_data, &slam_tof_data, &slam_pos_data);
 
-  // limit loop at 100000hz
-  delayMicroseconds(100000);
+  // // limit loop at 100000hz
+  // delayMicroseconds(100000);
 }
