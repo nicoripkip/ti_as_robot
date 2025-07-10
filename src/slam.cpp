@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include "BasicLinearAlgebra.h"
 #include "buffers.hpp"
+#include "config.hpp"
 
 
 const uint32_t map_width = 20;
@@ -21,7 +22,7 @@ BLA::Matrix<3, 1> x = { 0, 0, 1 };
 
 struct fused_sensor_t 
 {
-    struct TOFSensorData                slam_tof_data[30];
+    struct TOFSensorData                slam_tof_data[6];
     struct robot_pos_t                  slam_pos_data;
     uint16_t                            tlen;
 };
@@ -105,7 +106,10 @@ void update_obstacle_position(struct TOFSensorData* slam_tof_data, struct robot_
     
     // Serial.print("x_coord: "); Serial.println(coord_x);
     // Serial.print("y_coord: "); Serial.println(coord_y);
-    // internal_map[coord_x][coord_y] = SLAM_COORD_OCCUPIED;
+    // Serial.print("Free heap: ");
+    // Serial.println(ESP.getFreeHeap());
+
+    internal_map[coord_y][coord_x] = SLAM_COORD_OCCUPIED;
 }
 
 
@@ -127,11 +131,18 @@ struct fused_sensor_t filter_on_position_time(uint32_t t0, uint32_t t1, struct T
         return data;
     }
 
+    memset(data.slam_tof_data, 0, sizeof(data.slam_tof_data));
+
     uint32_t i, j;
 
     j = 0;
     for (i = 0; i < tlen; i++) {
         if (slam_tof_data[i].scan_interval >= t0 && slam_tof_data[i].scan_interval <= t1) {
+            if (j >= 5) {
+                Serial.println("Warning: slam_tof_data buffer overflow prevented");
+                break;  // Stop writing to avoid overflow
+            }
+
             data.slam_tof_data[j].degree = slam_tof_data[i].degree;
             data.slam_tof_data[j].distance = slam_tof_data[i].distance;
             data.slam_tof_data[j].scan_interval = slam_tof_data[i].scan_interval;
@@ -165,7 +176,8 @@ void update_map_with_fused_data(struct fused_sensor_t* fused_data, uint16_t fuse
         if (fused_data[i].tlen == 0) continue;  
 
         for (j = 0; j < fused_data[i].tlen; j++) {
-            update_obstacle_position(&fused_data[i].slam_tof_data[j], &fused_data[i].slam_pos_data);
+            // Update only an obstacle when the distance is within 500 milimeters
+            if (fused_data[i].slam_tof_data[j].distance <= 300) update_obstacle_position(&fused_data[i].slam_tof_data[j], &fused_data[i].slam_pos_data);
         }
     }
 }
@@ -194,8 +206,14 @@ void update_map(struct TOFSensorData* slam_tof_data, struct robot_pos_t* slam_po
     float dx, dy;
     uint8_t i;
 
+    memset(map_data, 0, sizeof(map_data));
+
     // Walk through the data with the least frequencies
     for (i = 0; i < plen-1; i++) {
+
+        // Make sure the buffer does not overflow
+        if (i >= 50) break;
+
         struct fused_sensor_t sensor_point;
 
         sensor_point = filter_on_position_time(slam_pos_data[i].scan_interval, slam_pos_data[i+1].scan_interval, slam_tof_data, tlen);
@@ -204,6 +222,18 @@ void update_map(struct TOFSensorData* slam_tof_data, struct robot_pos_t* slam_po
         sensor_point.slam_pos_data.scan_interval = slam_pos_data[i].scan_interval;
         
         map_data[i] = sensor_point;
+
+        // Serial.println("\n\n============================");
+
+        // Serial.print("Henk length: ");
+        // Serial.print(sensor_point.tlen);
+        // Serial.print(" for step: ");
+        // Serial.println(sensor_point.slam_pos_data.pos.x_coord);
+
+        // Serial.print("sensor length: ");
+        // Serial.print(map_data[i].tlen);
+        // Serial.print(" for step: ");
+        // Serial.println(map_data[i].slam_pos_data.pos.x_coord);
     }
 
     // Put those data into the map
@@ -274,12 +304,34 @@ void upload_map()
     if (mqtt_map_queue != nullptr) {
         String buffer = "";
 
+        // Build the full map string
         for (uint8_t i = 0; i < map_height; i++) {
             for (uint8_t j = 0; j < map_width; j++) {
                 buffer += String(internal_map[i][j]);
             }
         }
-        
-        xQueueSend(mqtt_map_queue, buffer.c_str(), 0);
+
+        const size_t chunk_size = MQTT_MAX_PACk_SIZE-1;
+        size_t total_length = buffer.length();
+        size_t offset = 0;
+
+        // Temporary buffer to hold each chunk (null-terminated)
+        char chunk[chunk_size + 1];  // +1 for null terminator
+
+        while (offset < total_length) {
+            size_t len = (total_length - offset > chunk_size) ? chunk_size : (total_length - offset);
+
+            // Copy substring into chunk buffer and add null terminator
+            buffer.substring(offset, offset + len).toCharArray(chunk, len + 1);
+
+            // Serial.print("Map chunck: ");
+            // Serial.print(" data:  ");
+            // Serial.println(chunk);
+
+            // Send chunk to queue
+            xQueueSend(mqtt_map_queue, chunk, 0);
+
+            offset += len;
+        }
     }
 }

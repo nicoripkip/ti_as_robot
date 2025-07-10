@@ -126,7 +126,6 @@ void loop()
     }
   }
 
-
   if (robot_pos_queue != nullptr) {
     while (xQueueReceive(robot_pos_queue, &robot_data, 0)) {
       slam_pos_data[psp] = robot_data;
@@ -134,18 +133,47 @@ void loop()
     }
   }
 
-  if (mqtt_data_queue != nullptr) {
-    char buffer[256];
-    memset(buffer, 0, 256);
 
-    snprintf(buffer, 256, "{ \"name\": \"%s\", \"role\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, "", robot_data.pos.x_coord, robot_data.pos.y_coord, "searching", 1, tof_data.distance, robot_data.rotation, tof_data.degree);
+  // Steer robot when object is detected
+  for (uint8_t i = 0; i < tsp; i++) {
+    if (slam_tof_data[i].distance < 300 && slam_tof_data[i].degree <= 90) {
+      motor1_data.i_turn_left = true;
+      motor2_data.i_turn_left = true;
+
+      motor1_data.i_turn_right = false;
+      motor2_data.i_turn_right = false;
+
+      motor1_data.i_forward = false;
+      motor2_data.i_forward = false;
+
+      delay(3000);
+    } else if (slam_tof_data[i].distance < 300 && slam_tof_data[i].degree > 90) {
+      motor1_data.i_turn_left = false;
+      motor2_data.i_turn_left = false;
+
+      motor1_data.i_turn_right = true;
+      motor2_data.i_turn_right = true;
+
+      motor1_data.i_forward = false;
+      motor2_data.i_forward = false;
+
+      delay(3000);
+    }
+  }
+
+
+  if (mqtt_data_queue != nullptr) {
+    char buffer[MQTT_MAX_PACk_SIZE];
+    memset(buffer, 0, MQTT_MAX_PACk_SIZE);
+
+    snprintf(buffer, MQTT_MAX_PACk_SIZE, "{ \"name\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, robot_data.pos.x_coord, robot_data.pos.y_coord, "searching", 1, tof_data.distance, robot_data.rotation, tof_data.degree);
 
     xQueueSend(mqtt_data_queue, buffer, 10);
   }
 
   // Update slam map
   update_map(slam_tof_data, slam_pos_data, tsp, psp);
-  // upload_map();
+  upload_map();
 
   // limit loop at 100000hz
   delayMicroseconds(100000);

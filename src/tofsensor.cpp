@@ -86,7 +86,7 @@ void tof_sensor_task(void* param)
         if (err) {
 
             tof_data.distance = vl53.distance();
-            if (tof_data.distance >= 600) tof_data.distance = infinity();
+            if (tof_data.distance >= 300) tof_data.distance = 65535;
             tof_data.degree = tellen;
             tof_data.scan_interval = micros();
 

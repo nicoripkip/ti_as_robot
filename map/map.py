@@ -6,9 +6,31 @@ import matplotlib.colors as mcolors
 
 client = mqtt.Client(client_id="slam_map", transport="tcp", reconnect_on_failure=True)
 
+grid_len = 0
+grid_d = []
+grid_str = []
+
 
 def on_message(client, userdata, message, properties=None):
+    global grid_d, grid_len
+
     print("received message")
+
+    grid_d.append(message.payload.decode())
+    grid_len += 1
+
+    if grid_len == 4:
+        grid_len = 0
+        grid_str = [int(x) for x in "".join(grid_d)]
+
+        grid_d = []
+
+        print(f"total map: {grid_str}")
+        print(f"len map: {len(grid_str)}")
+
+        if len(grid_str) == 400:
+            grid_data[:, :] = np.array(grid_str).reshape(20, 20)
+        
 
 
 def on_connect(client, userdata, flags, rc):

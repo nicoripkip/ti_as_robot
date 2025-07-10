@@ -4,9 +4,9 @@
 #include <WiFiClient.h>
 #include <time.h>
 #include "config.hpp"
-#include "PubSubClient.h"
 #include "buffers.hpp"
 #include <esp_wifi.h>
+#include "PubSubClient.h"
 
 
 // Static globals needed for this file
@@ -123,9 +123,9 @@ void init_mqtt()
     mqtt_client.subscribe("/ti/as/hypervisor2robot");
 
     // Setup MQTT buffers
-    mqtt_data_queue = xQueueCreate(10, sizeof(char) * 256);
-    logger_queue = xQueueCreate(100, sizeof(char) * 256);
-    // mqtt_map_queue = xQueueCreate(10, sizeof(char) * 450);
+    mqtt_data_queue = xQueueCreate(10, sizeof(char) * MQTT_MAX_PACk_SIZE);
+    logger_queue = xQueueCreate(100, sizeof(char) * MQTT_MAX_PACk_SIZE);
+    mqtt_map_queue = xQueueCreate(10, sizeof(char) * MQTT_MAX_PACk_SIZE);
 }
 
 
@@ -232,13 +232,36 @@ void network_task(void* param)
         if (wifi_connected && mqtt_connected)
         {
             // MQTT message sending
-            char message[256];
+            char message[MQTT_MAX_PACk_SIZE];
+            memset(message, 0, MQTT_MAX_PACk_SIZE);
+
+            // Send telemetry of the robot onto the mqtt server
             if (uxQueueMessagesWaiting(mqtt_data_queue) > 0) {
                 xQueueReceive(mqtt_data_queue, &message, 50);
                 mqtt_client.publish("/robot", message);
             }
 
-            mqtt_client.publish("/map", "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
+            // Send the map data onto the mqtt server
+            if (uxQueueMessagesWaiting(mqtt_map_queue) > 5) { 
+                char map_buff[MQTT_MAX_PACk_SIZE];
+                memset(map_buff, 0, MQTT_MAX_PACk_SIZE);
+
+                int c = 0;
+                while (xQueueReceive(mqtt_map_queue, &map_buff, 5)) { 
+                    mqtt_client.publish("/map", map_buff);
+                    // Serial.print("Map chunck: ");
+                    // Serial.print(c);
+                    // Serial.print(" data:  ");
+                    // Serial.println(map_buff);
+
+                    c++;
+
+                    if (c == 4) {
+                        while (xQueueReceive(mqtt_map_queue, &map_buff, 5));   
+                        break;
+                    }
+                }
+            }
 
             mqtt_client.loop();
         }
