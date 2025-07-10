@@ -136,7 +136,7 @@ void loop()
 
   // Steer robot when object is detected
   for (uint8_t i = 0; i < tsp; i++) {
-    if (slam_tof_data[i].distance < 300 && slam_tof_data[i].degree <= 90) {
+    if (slam_tof_data[i].distance < 200 && slam_tof_data[i].degree <= 90) {
       motor1_data.i_turn_left = true;
       motor2_data.i_turn_left = true;
 
@@ -146,8 +146,14 @@ void loop()
       motor1_data.i_forward = false;
       motor2_data.i_forward = false;
 
-      delay(3000);
-    } else if (slam_tof_data[i].distance < 300 && slam_tof_data[i].degree > 90) {
+      stepss = 0;
+
+      turning = 0;
+      while (true) {
+        turning++;
+        if (turning >= 100) break;
+      }
+    } else if (slam_tof_data[i].distance < 200 && slam_tof_data[i].degree > 90) {
       motor1_data.i_turn_left = false;
       motor2_data.i_turn_left = false;
 
@@ -157,16 +163,24 @@ void loop()
       motor1_data.i_forward = false;
       motor2_data.i_forward = false;
 
-      delay(3000);
+      stepss = 0;
+
+      turning = 0;
+      while (true) {
+        turning++;
+        if (turning >= 100) break;
+      }
     }
   }
 
 
   if (mqtt_data_queue != nullptr) {
-    char buffer[MQTT_MAX_PACk_SIZE];
-    memset(buffer, 0, MQTT_MAX_PACk_SIZE);
+    char buffer[255];
+    memset(buffer, 0, 255);
 
-    snprintf(buffer, MQTT_MAX_PACk_SIZE, "{ \"name\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, robot_data.pos.x_coord, robot_data.pos.y_coord, "searching", 1, tof_data.distance, robot_data.rotation, tof_data.degree);
+    snprintf(buffer, 255, "{ \"name\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, robot_data.pos.x_coord, robot_data.pos.y_coord, "searching", 1, tof_data.distance, robot_data.rotation, tof_data.degree);
+
+    Serial.println(buffer);
 
     xQueueSend(mqtt_data_queue, buffer, 10);
   }

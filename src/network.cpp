@@ -123,8 +123,8 @@ void init_mqtt()
     mqtt_client.subscribe("/ti/as/hypervisor2robot");
 
     // Setup MQTT buffers
-    mqtt_data_queue = xQueueCreate(10, sizeof(char) * MQTT_MAX_PACk_SIZE);
-    logger_queue = xQueueCreate(100, sizeof(char) * MQTT_MAX_PACk_SIZE);
+    mqtt_data_queue = xQueueCreate(10, sizeof(char) * 256);
+    logger_queue = xQueueCreate(10, sizeof(char) * MQTT_MAX_PACk_SIZE);
     mqtt_map_queue = xQueueCreate(10, sizeof(char) * MQTT_MAX_PACk_SIZE);
 }
 
@@ -162,7 +162,7 @@ void onWebSocketMessage(int i, WebsocketsMessage msg)
 {
     if (msg.isText()) {
         String text = msg.data();
-        Serial.printf("WebSocket[%d] Received text: %s\n", i, text.c_str());
+        // Serial.printf("WebSocket[%d] Received text: %s\n", i, text.c_str());
 
         if (text == "DETECTED" && !global_object_state.found_object) {
             Serial.printf("WebSocket[%d] Detected object!\n", i);
@@ -232,12 +232,13 @@ void network_task(void* param)
         if (wifi_connected && mqtt_connected)
         {
             // MQTT message sending
-            char message[MQTT_MAX_PACk_SIZE];
-            memset(message, 0, MQTT_MAX_PACk_SIZE);
+            char message[256];
+            memset(message, 0, 256);
 
             // Send telemetry of the robot onto the mqtt server
             if (uxQueueMessagesWaiting(mqtt_data_queue) > 0) {
-                xQueueReceive(mqtt_data_queue, &message, 50);
+                xQueueReceive(mqtt_data_queue, &message, 10);
+
                 mqtt_client.publish("/robot", message);
             }
 
@@ -249,10 +250,6 @@ void network_task(void* param)
                 int c = 0;
                 while (xQueueReceive(mqtt_map_queue, &map_buff, 5)) { 
                     mqtt_client.publish("/map", map_buff);
-                    // Serial.print("Map chunck: ");
-                    // Serial.print(c);
-                    // Serial.print(" data:  ");
-                    // Serial.println(map_buff);
 
                     c++;
 
