@@ -30,7 +30,10 @@ void IRAM_ATTR move_motor()
         if (!update_coord) update_coord = true;
 
         // Step the motor forward only when the motor is turning forward
-        if (!motor1_data.o_turning || !motor2_data.o_running) steps++;
+        if (!motor1_data.o_turning || !motor2_data.o_turning) {
+            // Serial.println("Stapje");    
+            steps++;
+        }
     }
 
     step_state = !step_state;
@@ -173,7 +176,6 @@ bool move_motor_left()
     digitalWrite(MOTOR_LEFT_DIRECTION_PIN, LOW);
     digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, HIGH);
 
-
     xSemaphoreGive(motor1_data.semaphore);
     xSemaphoreGive(motor2_data.semaphore);
 
@@ -205,7 +207,6 @@ bool move_motor_right()
 
     digitalWrite(MOTOR_LEFT_DIRECTION_PIN, HIGH);
     digitalWrite(MOTOR_RIGHT_DIRECTION_PIN, LOW);
-
 
     xSemaphoreGive(motor1_data.semaphore);
     xSemaphoreGive(motor2_data.semaphore);
@@ -259,7 +260,7 @@ void motor_task(void *param)
         struct robot_pos_t robot_pos;
 
         // Process the steps of the robot to update the coordinate
-        if (update_coord) {
+        if (steps > 0) {
             update_coord = false;
             robot_pos = update_robot_coord(steps, magneto_rotation);
             steps = 0;
@@ -275,14 +276,17 @@ void motor_task(void *param)
             motor2_data.o_running = true;
 
             if (motor1_data.i_forward && motor2_data.i_forward) {
+                Serial.println("Move forward");
                 move_motor_forward();
             }
 
             if (motor1_data.i_turn_left && motor2_data.i_turn_left) {
+                Serial.println("Move left");
                 move_motor_left();
             }
 
             if (motor1_data.i_turn_right && motor2_data.i_turn_right) {
+                Serial.println("Move right");
                 move_motor_right();
             }
         }

@@ -51,7 +51,7 @@ void setup()
     // Init global state object which holds the states of the robot
   global_object_state.semaphore = xSemaphoreCreateBinary();
   global_object_state.found_object = false;
-  global_object_state.action = ACTION_IDLE;
+  global_object_state.action = ACTION_SEARCHING;
   xSemaphoreGive(global_object_state.semaphore);
 
   // Register all tasks needed for the bot to work
@@ -89,28 +89,25 @@ void loop()
 
   // Search path for the robot
   if (global_object_state.action == ACTION_SEARCHING) {
-    if (stepss < 300) {
+    if (stepss < 150) {
+      // motor1_data.i_run = true;
+      // motor2_data.i_run = true;  
+
       motor1_data.i_forward = true;
-      motor1_data.i_forward = true;
+      motor2_data.i_forward = true;
+
+      motor1_data.i_turn_left = false;
+      motor2_data.i_turn_left = false;
+
+      motor1_data.i_turn_right = false;
+      motor2_data.i_turn_right = false;
 
       motor1_data.i_backward = false;
       motor2_data.i_backward = false;
 
       stepss++;
-    } else {
-      motor1_data.i_turn_left = true;
-      motor2_data.i_turn_left = true;
-
-      motor1_data.i_forward = false;
-      motor2_data.i_forward = false;
-
-      turning++;
-      if (turning >= 120) { 
-        stepss = 0;
-        turning = 0;
-      }
-    }
-  }
+    } 
+  } 
 
 
   // Declaration of variables
@@ -135,41 +132,50 @@ void loop()
 
 
   // Steer robot when object is detected
-  for (uint8_t i = 0; i < tsp; i++) {
-    if (slam_tof_data[i].distance < 200 && slam_tof_data[i].degree <= 90) {
-      motor1_data.i_turn_left = true;
-      motor2_data.i_turn_left = true;
+  static unsigned long turn_start_time = 0;
+  static bool turning_left = false;
+  static bool turning_right = false;
 
+  if (turning_left || turning_right) {
+    if (millis() - turn_start_time >= 1000) { // 500ms turn
+      motor1_data.i_forward = true;
+      motor2_data.i_forward = true;
+
+      // Stop turning
+      motor1_data.i_turn_left = false;
+      motor2_data.i_turn_left = false;
       motor1_data.i_turn_right = false;
       motor2_data.i_turn_right = false;
 
+      turning_left = false;
+      turning_right = false;
+    }
+     // Wait until turn is done
+  }
+
+  for (uint8_t i = 0; i < tsp; i++) {
+    if (slam_tof_data[i].distance < 200) {
+      stepss = 0;
+
+      if (slam_tof_data[i].degree <= 90) {
+        motor1_data.i_turn_left = true;
+        motor2_data.i_turn_left = true;
+
+        turning_left = true;
+        turn_start_time = millis();
+      } else {
+        motor1_data.i_turn_right = true;
+        motor2_data.i_turn_right = true;
+
+        turning_right = true;
+        turn_start_time = millis();
+      }
+
+      // Stop forward movement
       motor1_data.i_forward = false;
       motor2_data.i_forward = false;
 
-      stepss = 0;
-
-      turning = 0;
-      while (true) {
-        turning++;
-        if (turning >= 100) break;
-      }
-    } else if (slam_tof_data[i].distance < 200 && slam_tof_data[i].degree > 90) {
-      motor1_data.i_turn_left = false;
-      motor2_data.i_turn_left = false;
-
-      motor1_data.i_turn_right = true;
-      motor2_data.i_turn_right = true;
-
-      motor1_data.i_forward = false;
-      motor2_data.i_forward = false;
-
-      stepss = 0;
-
-      turning = 0;
-      while (true) {
-        turning++;
-        if (turning >= 100) break;
-      }
+      break;
     }
   }
 
@@ -179,8 +185,6 @@ void loop()
     memset(buffer, 0, 255);
 
     snprintf(buffer, 255, "{ \"name\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, robot_data.pos.x_coord, robot_data.pos.y_coord, "searching", 1, tof_data.distance, robot_data.rotation, tof_data.degree);
-
-    Serial.println(buffer);
 
     xQueueSend(mqtt_data_queue, buffer, 10);
   }

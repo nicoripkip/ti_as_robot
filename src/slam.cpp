@@ -22,7 +22,7 @@ BLA::Matrix<3, 1> x = { 0, 0, 1 };
 
 struct fused_sensor_t 
 {
-    struct TOFSensorData                slam_tof_data[6];
+    struct TOFSensorData                slam_tof_data[30];
     struct robot_pos_t                  slam_pos_data;
     uint16_t                            tlen;
 };
@@ -138,7 +138,7 @@ struct fused_sensor_t filter_on_position_time(uint32_t t0, uint32_t t1, struct T
     j = 0;
     for (i = 0; i < tlen; i++) {
         if (slam_tof_data[i].scan_interval >= t0 && slam_tof_data[i].scan_interval <= t1) {
-            if (j >= 5) {
+            if (j >= 30) {
                 Serial.println("Warning: slam_tof_data buffer overflow prevented");
                 break;  // Stop writing to avoid overflow
             }
