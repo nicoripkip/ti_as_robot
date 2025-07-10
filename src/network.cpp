@@ -164,8 +164,16 @@ void onWebSocketMessage(int i, WebsocketsMessage msg)
         String text = msg.data();
         Serial.printf("WebSocket[%d] Received text: %s\n", i, text.c_str());
 
-        if (text == "DETECTED") {
+        if (text == "DETECTED" && !global_object_state.found_object) {
             Serial.printf("WebSocket[%d] Detected object!\n", i);
+
+            if (xSemaphoreTake(global_object_state.semaphore, 10) == pdTRUE) {
+
+                global_object_state.found_object = true;
+                global_object_state.action = ACTION_RETRIEVING;
+
+                xSemaphoreGive(global_object_state.semaphore);
+            }
             // You can trigger GPIO, LED, etc. here
         }
     } else if (msg.isBinary()) {
@@ -229,6 +237,8 @@ void network_task(void* param)
                 xQueueReceive(mqtt_data_queue, &message, 50);
                 mqtt_client.publish("/robot", message);
             }
+
+            mqtt_client.publish("/map", "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
 
             mqtt_client.loop();
         }

@@ -21,7 +21,7 @@ BLA::Matrix<3, 1> x = { 0, 0, 1 };
 
 struct fused_sensor_t 
 {
-    struct TOFSensorData                slam_tof_data[100];
+    struct TOFSensorData                slam_tof_data[30];
     struct robot_pos_t                  slam_pos_data;
     uint16_t                            tlen;
 };
@@ -77,6 +77,10 @@ void init_map() {
  */
 void update_obstacle_position(struct TOFSensorData* slam_tof_data, struct robot_pos_t* slam_pos_data)
 {
+    if (slam_tof_data == nullptr) return;
+
+    if (slam_pos_data == nullptr) return;
+
     float corrected_tof_theta, corrected_robot_theta, global_theta;
     float obstacle_x, obstacle_y;
 
@@ -88,18 +92,20 @@ void update_obstacle_position(struct TOFSensorData* slam_tof_data, struct robot_
     obstacle_x = slam_pos_data->pos.x_coord + (convert_polar_x_to_cartesian_x(slam_tof_data->distance, global_theta) / cell_size_mm);
     obstacle_y = slam_pos_data->pos.y_coord + (convert_polar_y_to_cartesian_y(slam_tof_data->distance, global_theta) / cell_size_mm);
 
-    uint16_t coord_x = (uint16_t)floor(obstacle_x) + 10;
-    uint16_t coord_y = (uint16_t)floor(obstacle_y) + 10;
+    int coord_x = (int)floor(obstacle_x) + 10;
+    int coord_y = (int)floor(obstacle_y) + 10;
 
     // Make sure coord x is clamped between 0 -> map width
     if (coord_x < 0) coord_x = 0;
-    else if (coord_x > map_width) coord_x = map_width;
+    else if (coord_x >= map_width) coord_x = map_width - 1;
 
     // Make sure coord y is clamped between 0 -> map height
     if (coord_y < 0) coord_y = 0;
-    else if (coord_y > map_height) coord_y = map_height;
+    else if (coord_y >= map_height) coord_y = map_height - 1;
     
-    internal_map[coord_x][coord_y] = SLAM_COORD_OCCUPIED;
+    // Serial.print("x_coord: "); Serial.println(coord_x);
+    // Serial.print("y_coord: "); Serial.println(coord_y);
+    // internal_map[coord_x][coord_y] = SLAM_COORD_OCCUPIED;
 }
 
 
@@ -136,8 +142,6 @@ struct fused_sensor_t filter_on_position_time(uint32_t t0, uint32_t t1, struct T
     // Capture the length of the array
     data.tlen = j;
 
-    
-
     return data; 
 }
 
@@ -158,13 +162,11 @@ void update_map_with_fused_data(struct fused_sensor_t* fused_data, uint16_t fuse
     uint16_t i, j;
     
     for (i = 0; i < fused_len; i++) {
+        if (fused_data[i].tlen == 0) continue;  
 
-        // Serial.print("Yo mama: ");
-        // Serial.println(fused_data[i].tlen);
-
-        // for (j = 0; j < fused_data[i].tlen; j++) {
-        //     update_obstacle_position(&fused_data[i].slam_tof_data[j], &fused_data[i].slam_pos_data);
-        // }
+        for (j = 0; j < fused_data[i].tlen; j++) {
+            update_obstacle_position(&fused_data[i].slam_tof_data[j], &fused_data[i].slam_pos_data);
+        }
     }
 }
   
@@ -263,6 +265,10 @@ struct robot_pos_t update_robot_coord(uint16_t steps, uint16_t rotation)
 }
 
 
+/**
+ * @brief Function to generate a string from the map data and send it to the mqtt server
+ * 
+ */
 void upload_map()
 {
     if (mqtt_map_queue != nullptr) {

@@ -32,75 +32,6 @@ int stepss = 0;
 int turning = 0;
 
 
-enum RobotAction
-{
-  ACTION_IDLE = 0,
-  ACTION_SEARCHING = 1,
-  ACTION_FOLLOWING = 2,
-  ACTION_RETRIEVING = 3
-};
-
-
-/**
- * @brief Update the action given by the hypervisor or hmi
- * 
- * @param action
- */
-void update_motor_state(enum RobotAction action)
-{
-  BaseType_t err1;
-  BaseType_t err2;
-
-  err1 = xSemaphoreTake(motor1_data.semaphore, portMAX_DELAY);
-  err2 = xSemaphoreTake(motor2_data.semaphore, portMAX_DELAY);
-  if (err1 != pdTRUE) return;
-  if (err2 != pdTRUE) {
-    xSemaphoreGive(motor1_data.semaphore);
-    return;
-  }
-
-  switch (action) {
-    case ACTION_IDLE:
-        motor1_data.i_run = false;
-        motor2_data.i_run = false;
-
-        motor1_data.i_forward = false;
-        motor1_data.i_backward = false;
-        motor1_data.i_turn_left = false;
-        motor1_data.i_turn_right = false;
-
-        motor2_data.i_forward = false;
-        motor2_data.i_backward = false;
-        motor2_data.i_turn_left = false;
-        motor2_data.i_turn_right = false;
-      break;
-
-    case ACTION_SEARCHING:
-        motor1_data.i_run = true;
-        motor2_data.i_run = true;
-
-        motor1_data.i_forward = true;
-        motor2_data.i_forward = true;
-      break;
-
-    case ACTION_FOLLOWING:
-
-      break;
-
-    case ACTION_RETRIEVING:
-
-      break;
-
-    default:
-
-      break;
-  }
-
-  xSemaphoreGive(motor1_data.semaphore);
-  xSemaphoreGive(motor2_data.semaphore);
-}
-
-
 /**
  * @brief Setup basic tasks for the Microcontroller
  * 
@@ -117,6 +48,12 @@ void setup()
   // Init slam
   init_map();
 
+    // Init global state object which holds the states of the robot
+  global_object_state.semaphore = xSemaphoreCreateBinary();
+  global_object_state.found_object = false;
+  global_object_state.action = ACTION_IDLE;
+  xSemaphoreGive(global_object_state.semaphore);
+
   // Register all tasks needed for the bot to work
   xTaskCreatePinnedToCore(motor_task, "Motor Task", MIN_TASK_STACK_SIZE, NULL, 1, &motor_task_ptr, CORE_NUM_2);
   xTaskCreatePinnedToCore(network_task, "Network Task", MIN_TASK_STACK_SIZE, NULL, 1, &network_task_ptr, CORE_NUM_2);
@@ -124,8 +61,10 @@ void setup()
   xTaskCreatePinnedToCore(tof_sensor_task, "TOF Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &tof_sensor_task_ptr, CORE_NUM_1);
   xTaskCreatePinnedToCore(camera_sensor_task, "Camera Sensor Task", CAMERA_TASK_STACK_SIZE, NULL, 1, &camera_sensor_task_ptr, CORE_NUM_1);
   xTaskCreatePinnedToCore(magneto_sensor_task, "Magneto Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &magneto_sensor_task_ptr, CORE_NUM_2);
-  xTaskCreatePinnedToCore(arm_task, "Arm Procedure Task", MIN_TASK_STACK_SIZE, NULL, 1, &arm_task_ptr, CORE_NUM_2);
+  // xTaskCreatePinnedToCore(arm_task, "Arm Procedure Task", MIN_TASK_STACK_SIZE, NULL, 1, &arm_task_ptr, CORE_NUM_2);
 
+
+  // Start motors
   motor1_data.i_run = true;
   motor2_data.i_run = true;      
   
@@ -146,28 +85,33 @@ void loop()
   memset(slam_pos_data, 0, 100);
   memset(slam_tof_data, 0, 100);
 
+  // update_motor_state(global_object_state.action);
+
   // Search path for the robot
-  if (stepss < 300) {
-    motor1_data.i_forward = true;
-    motor1_data.i_forward = true;
+  if (global_object_state.action == ACTION_SEARCHING) {
+    if (stepss < 300) {
+      motor1_data.i_forward = true;
+      motor1_data.i_forward = true;
 
-    motor1_data.i_backward = false;
-    motor2_data.i_backward = false;
+      motor1_data.i_backward = false;
+      motor2_data.i_backward = false;
 
-    stepss++;
-  } else {
-    motor1_data.i_turn_left = true;
-    motor2_data.i_turn_left = true;
+      stepss++;
+    } else {
+      motor1_data.i_turn_left = true;
+      motor2_data.i_turn_left = true;
 
-    motor1_data.i_forward = false;
-    motor2_data.i_forward = false;
+      motor1_data.i_forward = false;
+      motor2_data.i_forward = false;
 
-    turning++;
-    if (turning >= 120) { 
-      stepss = 0;
-      turning = 0;
+      turning++;
+      if (turning >= 120) { 
+        stepss = 0;
+        turning = 0;
+      }
     }
   }
+
 
   // Declaration of variables
   struct TOFSensorData tof_data;
@@ -198,12 +142,6 @@ void loop()
 
     xQueueSend(mqtt_data_queue, buffer, 10);
   }
-
-  // Serial.print("Len of tof buffer: ");
-  // Serial.println(tsp);
-
-  // Serial.print("Len of pos buffer: ");
-  // Serial.println(psp);
 
   // Update slam map
   update_map(slam_tof_data, slam_pos_data, tsp, psp);

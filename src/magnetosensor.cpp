@@ -237,7 +237,6 @@ void magneto_sensor_task(void* param)
         float rads = atan2(-mag.YAxis, mag.XAxis);
         rads += declinationAngle;
         float degs = degrees(rads);
-        degs + 40;
         if (degs < 0) degs += 360;
         // if (degs >= 360) degs -= 360;
 
