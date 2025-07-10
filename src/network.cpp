@@ -7,6 +7,7 @@
 #include "buffers.hpp"
 #include <esp_wifi.h>
 #include "PubSubClient.h"
+#include "lwjson/lwjson.h"
 
 
 // Static globals needed for this file
@@ -37,6 +38,9 @@ void mqtt_callback(const char* topic, byte* payload, unsigned int length)
         Serial.println("Message received from hmi!");
     } else if (strcmp(topic, "/hypervisor2robot") == 0) {
         Serial.println("Message received from hypervisor!");
+    } else if (strcmp(topic, "/global") == 0) {
+        Serial.print("Data: ");
+        Serial.println((char *)payload);
     }
 }
 
@@ -129,6 +133,13 @@ void init_mqtt()
 }
 
 
+/**
+ * @brief 
+ * 
+ * @param index
+ * @param event
+ * @param data
+ */
 void onWebSocketEvent(int index, WebsocketsEvent event, String data)
 {
     switch (event)
@@ -158,6 +169,13 @@ void onWebSocketEvent(int index, WebsocketsEvent event, String data)
     }
 }
 
+
+/**
+ * @brief
+ * 
+ * @param i
+ * @param msg
+ */
 void onWebSocketMessage(int i, WebsocketsMessage msg)
 {
     if (msg.isText()) {
@@ -182,6 +200,11 @@ void onWebSocketMessage(int i, WebsocketsMessage msg)
     }
 }
 
+
+/**
+ * @brief
+ * 
+ */
 void init_websockets()
 {
     for (int i = 0; i < MAX_WS_CLIENTS; ++i)
@@ -212,20 +235,17 @@ void init_websockets()
     }
 }
 
+
 /**
  * @brief Function to connect to the internet and process any network activity
  *
  * @param param
  */
-
-
 void network_task(void* param)
 {
     init_Wifi();
-    if (wifi_connected)
-        init_mqtt();
-    if (wifi_connected)
-        init_websockets();
+    if (wifi_connected) init_mqtt();
+    if (wifi_connected) init_websockets();
 
     while (true)
     {
@@ -249,7 +269,7 @@ void network_task(void* param)
 
                 int c = 0;
                 while (xQueueReceive(mqtt_map_queue, &map_buff, 5)) { 
-                    mqtt_client.publish("/map", map_buff);
+                    mqtt_client.publish(String(String("/map/") + String(DEVICE_NAME)).c_str() , map_buff);
 
                     c++;
 
@@ -292,10 +312,7 @@ void network_task(void* param)
             }
         }
 
-
-
         vTaskDelay(50 / portTICK_PERIOD_MS);  // small delay before next request
-
     }
 }
 
