@@ -203,6 +203,8 @@ void magneto_sensor_task(void* param)
         compass.setSamples(QMC5883_SAMPLES_8);
 
         compass.setDeclinationAngle(declinationAngle);
+
+        Serial.println("Succesfully configured magneto");
     }
 
     i2c_give_semaphore(1);
@@ -245,7 +247,7 @@ void magneto_sensor_task(void* param)
         data.measure_z = mag.ZAxis;
 
         // data.degree = exponential_filter(0.5, degs, magneto_rotation);
-        data.degree = degs;
+        data.degree = (uint16_t)degs;
         data.scan_interval = micros();
 
         // Serial.print("Magneto data: ");
@@ -258,6 +260,6 @@ void magneto_sensor_task(void* param)
         }
 
         // prev_data = data;
-        delay(10);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }

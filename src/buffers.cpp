@@ -13,6 +13,7 @@ QueueHandle_t           magneto_sensor_data_queue;
 QueueHandle_t           logger_queue;
 QueueHandle_t           robot_pos_queue;
 QueueHandle_t           mqtt_map_queue;
+QueueHandle_t           scent_map_queue;
 
 
 /**

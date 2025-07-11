@@ -37,6 +37,11 @@ void init_map();
 void update_map( struct TOFSensorData* slam_tof_data, struct robot_pos_t* slam_pos_data, uint16_t tlen, uint16_t plen);
 void upload_map();
 
+void clear_pheromone();
+void update_pheromone(float x, float y, float scent);
+void deposit_pheromone(struct robot_pos_t* slam_pos_data);
+bool detect_pheromone(struct robot_pos_t* slam_pos_data);
+
 
 struct robot_pos_t update_robot_coord(uint16_t steps, uint16_t rotation);
 

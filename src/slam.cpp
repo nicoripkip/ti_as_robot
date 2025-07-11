@@ -11,6 +11,7 @@ const uint16_t cell_size_mm = 100;
 
 
 static enum slam_map_data_t internal_map[map_width][map_height];
+static float pheromone_map[map_width][map_height];
 
 
 const uint32_t SLAM_UPDATE_RATE = 0;
@@ -61,12 +62,22 @@ float convert_polar_y_to_cartesian_y(float distance, float phi)
  * 
  */
 void init_map() {
-    // 
+    // Setup slam map
     for (uint8_t i = 0; i < map_height; i++) {
         for (uint8_t j = 0; j < map_width; j++) {
             internal_map[i][j] = SLAM_COORD_UNKNOWN;
         }
     }
+
+    // Setup pheromone map
+    for (uint8_t i = 0; i < map_height; i++) {
+        for (uint8_t j = 0; j < map_width; j++) {
+            pheromone_map[i][j] = 1e-6;
+        }
+    }
+
+    // Init buffers
+    scent_map_queue = xQueueCreate(100, 50 * sizeof(char));
 }
 
 
@@ -332,6 +343,139 @@ void upload_map()
             xQueueSend(mqtt_map_queue, chunk, 0);
 
             offset += len;
+        }
+    }
+}
+
+
+/**
+ * @brief
+ * 
+ */
+void clear_pheromone()
+{
+    char buffer[50];
+
+    for (uint8_t i = 0; i < map_height; i++) {
+        for (uint8_t j = 0; j < map_width; j++) {
+            pheromone_map[i][j] = 1e-6;
+    
+            memset(buffer, 0, 50);
+
+            snprintf(buffer, 50, "{ \"x\": %.2f, \"y\": %.2f, \"scent\": %.2f }", j, i, 0.2);
+
+            if (scent_map_queue != nullptr) {
+                xQueueSend(scent_map_queue, buffer, 10);
+            }
+        }
+    }
+}
+
+
+/**
+ * @brief Function to update the scent value in the pheromone map
+ * 
+ * @param x
+ * @param y
+ * @param scent
+ */
+void update_pheromone(float x, float y, float scent)
+{
+    int coord_x = (int)floor(x) + 10;
+    int coord_y = (int)floor(y) + 10;
+
+    if (coord_x < 0) coord_x = 0;
+    else if (coord_x >= map_width) coord_x = map_width - 1;
+
+    if (coord_y < 0) coord_y = 0;
+    else if (coord_y >= map_height) coord_y = map_height - 1;
+ 
+    if (fabs(pheromone_map[coord_y][coord_x]) > 1e-6) {
+        pheromone_map[coord_y][coord_x] = scent;
+    } else if (pheromone_map[coord_y][coord_x] > 1.0f) {
+        pheromone_map[coord_y][coord_x] = 1.0f;
+    } else {
+        pheromone_map[coord_y][coord_x] += scent;
+    }
+}
+
+
+/**
+ * @brief
+ * 
+ * @param slam_pos_data
+ */
+void deposit_pheromone(struct robot_pos_t* slam_pos_data)
+{
+    if (slam_pos_data == nullptr) return;
+
+    update_pheromone(slam_pos_data->pos.x_coord, slam_pos_data->pos.y_coord, 0.2);
+
+    char buffer[50];
+    memset(buffer, 0, 50);
+
+    snprintf(buffer, 50, "{ \"x\": %.2f, \"y\": %.2f, \"scent\": %.2f }", slam_pos_data->pos.x_coord, slam_pos_data->pos.y_coord, 0.2);
+
+    if (scent_map_queue != nullptr) {
+        xQueueSend(scent_map_queue, buffer, 10);
+    }
+}
+
+
+/**
+ * @brief
+ * 
+ * @param slam_pos_data
+ */
+bool detect_pheromone(struct robot_pos_t* slam_pos_data)
+{
+    if (slam_pos_data == nullptr) return false;
+
+        // Get robot grid position
+    int base_x = (int)floor(slam_pos_data->pos.x_coord) + 10;
+    int base_y = (int)floor(slam_pos_data->pos.y_coord) + 10;
+
+    // Rotation in radians (adjusted)
+    float angle_rad = radians(90 - slam_pos_data->rotation);  // adjust if 0° is not north
+
+    // Define offsets for 5 forward-looking cells
+    // These offsets are relative to the robot's current direction
+    float forward_offsets[5][2] = {
+        {1.0, 0.0},      // center front
+        {1.0, 0.5},      // front right
+        {1.0, -0.5},     // front left
+        {1.0, 1.0},      // far right
+        {1.0, -1.0}      // far left
+    };
+
+    Serial.println("Detecting pheromones in front:");
+
+    for (int i = 0; i < 5; i++) {
+        // Rotate offset based on robot orientation
+        float dx = forward_offsets[i][0];
+        float dy = forward_offsets[i][1];
+
+        // Apply rotation matrix
+        float rotated_dx = dx * cos(angle_rad) - dy * sin(angle_rad);
+        float rotated_dy = dx * sin(angle_rad) + dy * cos(angle_rad);
+
+        // Convert to grid coordinates
+        int grid_x = base_x + round(rotated_dx);
+        int grid_y = base_y + round(rotated_dy);
+
+        // Clamp to map bounds
+        if (grid_x < 0 || grid_x >= map_width || grid_y < 0 || grid_y >= map_height) {
+            continue;
+        }
+
+        float scent = pheromone_map[grid_y][grid_x];
+        if (scent > 1e-6) {
+            Serial.print("Detected pheromone at (");
+            Serial.print(grid_x - 10); Serial.print(", ");
+            Serial.print(grid_y - 10); Serial.print(") => ");
+            Serial.println(scent);\
+
+            return true;
         }
     }
 }

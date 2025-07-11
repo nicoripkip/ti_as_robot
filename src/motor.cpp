@@ -262,6 +262,7 @@ void motor_task(void *param)
         // Process the steps of the robot to update the coordinate
         if (steps > 0) {
             update_coord = false;
+
             robot_pos = update_robot_coord(steps, magneto_rotation);
             steps = 0;
 
@@ -276,7 +277,7 @@ void motor_task(void *param)
             motor2_data.o_running = true;
 
             if (motor1_data.i_forward && motor2_data.i_forward) {
-                Serial.println("Move forward");
+                // Serial.println("Move forward");
                 move_motor_forward();
             }
 
@@ -289,6 +290,9 @@ void motor_task(void *param)
                 Serial.println("Move right");
                 move_motor_right();
             }
+        } else {
+            motor1_data.o_running = false;
+            motor2_data.o_running = false;     
         }
     }
 }

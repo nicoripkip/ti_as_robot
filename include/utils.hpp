@@ -7,6 +7,7 @@
 
 #include <Arduino.h>
 #include <cstdint>
+#include "slam.hpp"
 
 
 enum RobotAction
@@ -21,6 +22,8 @@ enum RobotAction
 struct object_state_t
 {
     bool                found_object;
+    bool                marked_object;
+    robot_pos_t         marked_pos;
     enum RobotAction    action;
     SemaphoreHandle_t   semaphore;
 };

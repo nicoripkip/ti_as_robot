@@ -2,6 +2,7 @@ import paho.mqtt.client as mqtt
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import sys
 
 
 client = mqtt.Client(client_id="slam_map", transport="tcp", reconnect_on_failure=True)
@@ -34,7 +35,7 @@ def on_message(client, userdata, message, properties=None):
 
 
 def on_connect(client, userdata, flags, rc):
-    client.subscribe("/map")
+    client.subscribe("/map/bot1")
 
     print("Connected to mqtt server")
 

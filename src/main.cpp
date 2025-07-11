@@ -28,10 +28,6 @@ TaskHandle_t magneto_sensor_task_ptr;
 TaskHandle_t arm_task_ptr;
 
 
-int stepss = 0;
-int turning = 0;
-
-
 /**
  * @brief Setup basic tasks for the Microcontroller
  * 
@@ -51,7 +47,8 @@ void setup()
     // Init global state object which holds the states of the robot
   global_object_state.semaphore = xSemaphoreCreateBinary();
   global_object_state.found_object = false;
-  global_object_state.action = ACTION_SEARCHING;
+  global_object_state.marked_object = false;
+  global_object_state.action = ACTION_IDLE;
   xSemaphoreGive(global_object_state.semaphore);
 
   // Register all tasks needed for the bot to work
@@ -80,21 +77,26 @@ void loop()
 {
   uint16_t tsp = 0;
   uint16_t psp = 0;
+  struct TOFSensorData tof_data;
+  struct robot_pos_t  robot_data;
+  static bool turning_left = false;
+  static bool turning_right = false;
 
   // Make sure all buffers are empty
-  memset(slam_pos_data, 0, 100);
-  memset(slam_tof_data, 0, 100);
+  memset(slam_pos_data, 0, sizeof(slam_pos_data));
+  memset(slam_tof_data, 0, sizeof(slam_tof_data));
 
   // update_motor_state(global_object_state.action);
 
   // Search path for the robot
-  if (global_object_state.action == ACTION_SEARCHING) {
-    if (stepss < 150) {
-      // motor1_data.i_run = true;
-      // motor2_data.i_run = true;  
+  switch (global_object_state.action) {
+    case ACTION_IDLE:
+ 
+      motor1_data.i_run = false;
+      motor2_data.i_run = false;  
 
-      motor1_data.i_forward = true;
-      motor2_data.i_forward = true;
+      motor1_data.i_forward = false;
+      motor2_data.i_forward = false;
 
       motor1_data.i_turn_left = false;
       motor2_data.i_turn_left = false;
@@ -105,14 +107,58 @@ void loop()
       motor1_data.i_backward = false;
       motor2_data.i_backward = false;
 
-      stepss++;
-    } 
-  } 
+      break;
+
+    case ACTION_SEARCHING:
+
+      motor1_data.i_run = true;
+      motor2_data.i_run = true;  
+      
+      if (!turning_left && !turning_right) {
+        motor1_data.i_forward = true;
+        motor2_data.i_forward = true;
+
+        motor1_data.i_turn_left = false;
+        motor2_data.i_turn_left = false;
+
+        motor1_data.i_turn_right = false;
+        motor2_data.i_turn_right = false;
+
+        motor1_data.i_backward = false;
+        motor2_data.i_backward = false;
+      }
+
+      // if (detect_pheromone(&robot_data)) {
+      //   BaseType_t err = xSemaphoreTake(global_object_state.semaphore, 10);
+      //   while (err != pdTRUE) err = xSemaphoreTake(global_object_state.semaphore, 10);
+
+      //   global_object_state.action = ACTION_FOLLOWING;
+
+      //   xSemaphoreGive(global_object_state.semaphore);
+      // }
+
+      break;
+    case ACTION_RETRIEVING:
+
+      motor1_data.i_run = true;
+      motor2_data.i_run = true; 
+
+      if (global_object_state.found_object && !global_object_state.marked_object) {
+        global_object_state.marked_pos = robot_data;
+        global_object_state.marked_object = true;
+      }
+      
+      deposit_pheromone(&robot_data);
 
 
-  // Declaration of variables
-  struct TOFSensorData tof_data;
-  struct robot_pos_t  robot_data;
+
+      break;
+
+    case ACTION_FOLLOWING:
+
+      break;
+  }
+
 
 
   if (tof_sensor_data_queue != nullptr) {
@@ -124,7 +170,7 @@ void loop()
   }
 
   if (robot_pos_queue != nullptr) {
-    while (xQueueReceive(robot_pos_queue, &robot_data, 0)) {
+    while (xQueueReceive(robot_pos_queue, &robot_data, 1)) {
       slam_pos_data[psp] = robot_data;
       psp++;
     }
@@ -133,11 +179,10 @@ void loop()
 
   // Steer robot when object is detected
   static unsigned long turn_start_time = 0;
-  static bool turning_left = false;
-  static bool turning_right = false;
+
 
   if (turning_left || turning_right) {
-    if (millis() - turn_start_time >= 1000) { // 500ms turn
+    if (millis() - turn_start_time >= 2000) { // 500ms turn
       motor1_data.i_forward = true;
       motor2_data.i_forward = true;
 
@@ -154,18 +199,22 @@ void loop()
   }
 
   for (uint8_t i = 0; i < tsp; i++) {
-    if (slam_tof_data[i].distance < 200) {
-      stepss = 0;
+    if (slam_tof_data[i].distance < 300) {
+      Serial.println("obstacle detected");
 
-      if (slam_tof_data[i].degree <= 90) {
+      if (slam_tof_data[i].degree <= 90 && !turning_right) {
         motor1_data.i_turn_left = true;
         motor2_data.i_turn_left = true;
 
+        Serial.println("Turn left");
+
         turning_left = true;
         turn_start_time = millis();
-      } else {
+      } else if (slam_tof_data[i].degree > 90 && !turning_left) {
         motor1_data.i_turn_right = true;
         motor2_data.i_turn_right = true;
+
+        Serial.println("Turn right");
 
         turning_right = true;
         turn_start_time = millis();
@@ -181,18 +230,23 @@ void loop()
 
 
   if (mqtt_data_queue != nullptr) {
-    char buffer[255];
-    memset(buffer, 0, 255);
+    static char robot_buffer[255];
+    memset(robot_buffer, 0, 255);
 
-    snprintf(buffer, 255, "{ \"name\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, robot_data.pos.x_coord, robot_data.pos.y_coord, "searching", 1, tof_data.distance, robot_data.rotation, tof_data.degree);
+    char action_buffer[11];
+    memset(action_buffer, 0, 11);
 
-    xQueueSend(mqtt_data_queue, buffer, 10);
+    if (global_object_state.action == ACTION_IDLE) memcpy(action_buffer, "idle", 4);
+    else if (global_object_state.action == ACTION_SEARCHING) memcpy(action_buffer, "searching", 9);
+    else if (global_object_state.action == ACTION_RETRIEVING) memcpy(action_buffer, "retrieving", 10);
+    else if (global_object_state.action == ACTION_FOLLOWING) memcpy(action_buffer, "following", 9);
+
+    snprintf(robot_buffer, 255, "{ \"name\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, robot_data.pos.x_coord, robot_data.pos.y_coord, action_buffer, 1, tof_data.distance, robot_data.rotation, tof_data.degree);
+
+    xQueueSend(mqtt_data_queue, robot_buffer, 10);
   }
 
   // Update slam map
   update_map(slam_tof_data, slam_pos_data, tsp, psp);
   upload_map();
-
-  // limit loop at 100000hz
-  delayMicroseconds(100000);
 }

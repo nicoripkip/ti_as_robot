@@ -67,6 +67,6 @@ void camera_sensor_task(void* param)
             while (ESP_CAM_SERIAL.available()) ESP_CAM_SERIAL.read(); // flush garbage
         }
 
-        vTaskDelay(150 / portTICK_PERIOD_MS);  // small delay before next request
+        vTaskDelay(10 / portTICK_PERIOD_MS);  // small delay before next request
     }
 }
