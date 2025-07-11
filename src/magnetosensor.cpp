@@ -236,7 +236,7 @@ void magneto_sensor_task(void* param)
             i2c_give_semaphore(1);
         }
 
-        float rads = atan2(-mag.YAxis, mag.XAxis);
+        float rads = atan2(mag.YAxis, mag.XAxis);
         rads += declinationAngle;
         float degs = degrees(rads);
         if (degs < 0) degs += 360;
@@ -246,7 +246,7 @@ void magneto_sensor_task(void* param)
         data.measure_y = mag.YAxis;
         data.measure_z = mag.ZAxis;
 
-        // data.degree = exponential_filter(0.5, degs, magneto_rotation);
+        data.degree = exponential_filter(0.8, degs, magneto_rotation);
         data.degree = (uint16_t)degs;
         data.scan_interval = micros();
 

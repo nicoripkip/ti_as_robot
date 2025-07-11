@@ -199,7 +199,7 @@ void loop()
   }
 
   for (uint8_t i = 0; i < tsp; i++) {
-    if (slam_tof_data[i].distance < 300) {
+    if (slam_tof_data[i].distance < 220 && slam_tof_data[i].distance > 50) {
       Serial.println("obstacle detected");
 
       if (slam_tof_data[i].degree <= 90 && !turning_right) {

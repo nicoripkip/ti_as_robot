@@ -263,7 +263,7 @@ void motor_task(void *param)
         if (steps > 0) {
             update_coord = false;
 
-            robot_pos = update_robot_coord(steps, magneto_rotation);
+            robot_pos = update_robot_coord(1, magneto_rotation);
             steps = 0;
 
             if (robot_pos_queue != nullptr) {
@@ -282,12 +282,12 @@ void motor_task(void *param)
             }
 
             if (motor1_data.i_turn_left && motor2_data.i_turn_left) {
-                Serial.println("Move left");
+                // Serial.println("Move left");
                 move_motor_left();
             }
 
             if (motor1_data.i_turn_right && motor2_data.i_turn_right) {
-                Serial.println("Move right");
+                // Serial.println("Move right");
                 move_motor_right();
             }
         } else {

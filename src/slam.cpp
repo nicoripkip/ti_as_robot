@@ -276,23 +276,9 @@ struct robot_pos_t update_robot_coord(uint16_t steps, uint16_t rotation)
 
     float distance = steps * moving_speed;
 
-    BLA::Matrix<3, 3> m_translation = {
-        1, 0, distance,
-        0, 1, 0,
-        0, 0, 1
-    };
-
-    BLA::Matrix<3, 3> m_rotation = {
-        cos(angle_rad), -sin(angle_rad), 0,
-        sin(angle_rad), cos(angle_rad), 0,
-        0, 0, 1
-    };
-
-    x = m_translation * m_rotation * x;
-
     // Update position
-    float dx = x(0) / cell_size_mm;
-    float dy = x(1) / cell_size_mm;
+    float dx = convert_polar_x_to_cartesian_x(distance, angle_rad) / cell_size_mm;
+    float dy = convert_polar_y_to_cartesian_y(distance, angle_rad) / cell_size_mm;
 
     // Update the local position data
     robot_pos.pos.x_coord = prev_pos.pos.x_coord + dx;
