@@ -10,8 +10,8 @@ const uint32_t map_height = 20;
 const uint16_t cell_size_mm = 100;
 
 
-static enum slam_map_data_t internal_map[map_width][map_height];
-static float pheromone_map[map_width][map_height];
+static enum slam_map_data_t internal_map[map_height][map_width];
+static float pheromone_map[map_height][map_width];
 
 
 const uint32_t SLAM_UPDATE_RATE = 0;
@@ -21,6 +21,10 @@ const uint32_t SLAM_UPDATE_RATE = 0;
 BLA::Matrix<3, 1> x = { 0, 0, 1 };
 
 
+/**
+ * @brief Struct for fusing different data points together
+ * 
+ */
 struct fused_sensor_t 
 {
     struct TOFSensorData                slam_tof_data[30];
@@ -78,6 +82,50 @@ void init_map() {
 
     // Init buffers
     scent_map_queue = xQueueCreate(100, 50 * sizeof(char));
+}
+
+
+/**
+ * @brief Function to raytrace the seen coords
+ * 
+ * @param x0
+ * @param y0
+ * @param x1
+ * @param y1
+ */
+void bresenham_line_algorithm(float x0, float y0, float x1, float y1)
+{
+
+}
+
+
+/**
+ * @brief 
+ * 
+ * @param slam_tof_data
+ * @param slam_pos_data
+ */
+void update_seen_position(struct TOFSensorData* slam_tof_data, struct robot_pos_t* slam_pos_data) 
+{
+    if (slam_tof_data == nullptr) return;
+
+    if (slam_pos_data == nullptr) return;
+
+    float corrected_tof_theta, corrected_robot_theta, global_theta;
+    float dx, dy;
+
+    corrected_tof_theta = radians(slam_tof_data->degree);
+    corrected_robot_theta = radians(slam_pos_data->rotation);
+
+    global_theta = corrected_robot_theta + corrected_tof_theta;
+
+    uint16_t distance = slam_tof_data->distance > 300 ? 300 : slam_tof_data->distance;
+
+    dx = slam_pos_data->pos.x_coord + (convert_polar_x_to_cartesian_x(distance, global_theta) / cell_size_mm);
+    dy = slam_pos_data->pos.y_coord + (convert_polar_y_to_cartesian_y(distance, global_theta) / cell_size_mm);
+
+    // Run bresenhams algorithm here
+    bresenham_line_algorithm(slam_pos_data->pos.x_coord, slam_pos_data->pos.y_coord, dx, dy);
 }
 
 

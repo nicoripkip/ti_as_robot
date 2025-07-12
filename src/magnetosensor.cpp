@@ -246,7 +246,7 @@ void magneto_sensor_task(void* param)
         data.measure_y = mag.YAxis;
         data.measure_z = mag.ZAxis;
 
-        data.degree = exponential_filter(0.8, degs, magneto_rotation);
+        data.degree = exponential_filter(0.2, degs, magneto_rotation);
         data.degree = (uint16_t)degs;
         data.scan_interval = micros();
 
