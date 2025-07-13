@@ -383,7 +383,7 @@ void upload_map()
 
 
 /**
- * @brief
+ * @brief Function to clear all pheromones in the pheromone map
  * 
  */
 void clear_pheromone()
@@ -435,7 +435,7 @@ void update_pheromone(float x, float y, float scent)
 
 
 /**
- * @brief
+ * @brief Function to place a pheromone in the pheromone map local and on the server
  * 
  * @param slam_pos_data
  */

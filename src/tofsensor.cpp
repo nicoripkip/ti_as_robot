@@ -60,16 +60,16 @@ void tof_sensor_task(void* param)
     }
     Serial.println(F("VL53L1X sensor OK!"));
 
+    Serial.println(F("Ranging started"));
+    vl53.setTimingBudget(10);
+    Serial.print(F("Timing budget (ms): "));
+    Serial.println(vl53.getTimingBudget());
+
     if (! vl53.startRanging()) {
         Serial.print(F("Couldn't start ranging: "));
         Serial.println(vl53.vl_status);
         while (1)  delay(10);
     }
-
-    Serial.println(F("Ranging started"));
-    vl53.setTimingBudget(10);
-    Serial.print(F("Timing budget (ms): "));
-    Serial.println(vl53.getTimingBudget());
 
     i2c_give_semaphore(1);
 
@@ -82,11 +82,13 @@ void tof_sensor_task(void* param)
         struct TOFSensorData tof_data;
         bool err;
 
+        tof_data.distance = 0;
+
         err = i2c_take_semaphore(1);
         if (err) {
 
             tof_data.distance = vl53.distance();
-            if (tof_data.distance >= 300) tof_data.distance = 65535;
+            // if (tof_data.distance >= 300) tof_data.distance = 65535;
             tof_data.degree = tellen;
             tof_data.scan_interval = micros();
 
@@ -114,6 +116,8 @@ void tof_sensor_task(void* param)
                 tellen -= 1;
             }
         }
+
+        Serial.println(tof_data.distance);
 
         ledcWrite(SERVO_TOF_SENSOR_PWM_CHANNEL, turn_servo(tellen));
 

@@ -56,11 +56,13 @@
                 const lwjson_token_t* y = lwjson_find(&_lwjson, "y");
                 const lwjson_token_t* scent = lwjson_find(&_lwjson, "scent");
 
-                float _x = x->u.num_real - 10.0f;
-                float _y = y->u.num_real - 10.0f;
-                float _scent = scent->u.num_real;
+                if (x && y && scent) {
+                    float _x = x->u.num_real - 10.0f;
+                    float _y = y->u.num_real - 10.0f;
+                    float _scent = scent->u.num_real;
 
-                update_pheromone(_x, _y, _scent);
+                    update_pheromone(_x, _y, _scent);
+                }
             }
         } else if (strcmp(topic, "/global") == 0) {
             if (lwjson_parse(&_lwjson, buffer) == lwjsonOK) {
@@ -72,28 +74,31 @@
                 memset(botname, 0, 10);
                 memcpy(botname, bot->u.str.token_value, bot->u.str.token_value_len);
 
-                // Check if the message is for this robot
-                if (strcmp(botname, DEVICE_NAME) == 0) {
-                    char command[20];
+                // Safety check
+                if (bot && action) {
+                    // Check if the message is for this robot
+                    if (strcmp(botname, DEVICE_NAME) == 0) {
+                        char command[20];
 
-                    memset(command, 0,20);
-                    memcpy(command, action->u.str.token_value, action->u.str.token_value_len);
-                    
-                    BaseType_t err;
-                    if (strcmp(command, "idle") == 0) {
-                        err = xSemaphoreTake(global_object_state.semaphore, 10);
-                        while (err != pdTRUE) err = xSemaphoreTake(global_object_state.semaphore, 10);
+                        memset(command, 0,20);
+                        memcpy(command, action->u.str.token_value, action->u.str.token_value_len);
+                        
+                        BaseType_t err;
+                        if (strcmp(command, "idle") == 0) {
+                            err = xSemaphoreTake(global_object_state.semaphore, 10);
+                            while (err != pdTRUE) err = xSemaphoreTake(global_object_state.semaphore, 10);
 
-                        global_object_state.action = ACTION_IDLE;
+                            global_object_state.action = ACTION_IDLE;
 
-                        xSemaphoreGive(global_object_state.semaphore);
-                    } else if (strcmp(command, "searching") == 0) {
-                        err = xSemaphoreTake(global_object_state.semaphore, 10);
-                        while (err != pdTRUE) err = xSemaphoreTake(global_object_state.semaphore, 10);
+                            xSemaphoreGive(global_object_state.semaphore);
+                        } else if (strcmp(command, "searching") == 0) {
+                            err = xSemaphoreTake(global_object_state.semaphore, 10);
+                            while (err != pdTRUE) err = xSemaphoreTake(global_object_state.semaphore, 10);
 
-                        global_object_state.action = ACTION_SEARCHING;
+                            global_object_state.action = ACTION_SEARCHING;
 
-                        xSemaphoreGive(global_object_state.semaphore);
+                            xSemaphoreGive(global_object_state.semaphore);
+                        }
                     }
                 }
             } else {
@@ -244,7 +249,7 @@
             // Serial.printf("WebSocket[%d] Received text: %s\n", i, text.c_str());
 
             if (text == "DETECTED" && !global_object_state.found_object) {
-                Serial.printf("WebSocket[%d] Detected object!\n", i);
+                // Serial.printf("WebSocket[%d] Detected object!\n", i);
 
                 if (xSemaphoreTake(global_object_state.semaphore, 10) == pdTRUE) {
 

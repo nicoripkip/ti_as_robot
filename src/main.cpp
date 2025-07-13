@@ -53,7 +53,7 @@ void setup()
 
   // Register all tasks needed for the bot to work
   xTaskCreatePinnedToCore(motor_task, "Motor Task", MIN_TASK_STACK_SIZE, NULL, 1, &motor_task_ptr, CORE_NUM_2);
-  xTaskCreatePinnedToCore(network_task, "Network Task", MIN_TASK_STACK_SIZE, NULL, 1, &network_task_ptr, CORE_NUM_2);
+  xTaskCreatePinnedToCore(network_task, "Network Task", MIN_TASK_STACK_SIZE, NULL, 1, &network_task_ptr, CORE_NUM_1);
   xTaskCreatePinnedToCore(bluetooth_task, "Bluetooth Task", MIN_TASK_STACK_SIZE, NULL, 1, &bluetooth_task_ptr, CORE_NUM_2);
   xTaskCreatePinnedToCore(tof_sensor_task, "TOF Sensor Task", MIN_TASK_STACK_SIZE, NULL, 1, &tof_sensor_task_ptr, CORE_NUM_1);
   xTaskCreatePinnedToCore(camera_sensor_task, "Camera Sensor Task", CAMERA_TASK_STACK_SIZE, NULL, 1, &camera_sensor_task_ptr, CORE_NUM_1);
@@ -148,7 +148,7 @@ void loop()
         global_object_state.marked_object = true;
       }
       
-      deposit_pheromone(&robot_data);
+      // deposit_pheromone(&robot_data);
 
 
 
@@ -165,6 +165,7 @@ void loop()
     // Get data from buffer
     while (xQueueReceive(tof_sensor_data_queue, &tof_data, 0)) {
       slam_tof_data[tsp] = tof_data;
+
       tsp++;
     }
   }
@@ -241,12 +242,14 @@ void loop()
     else if (global_object_state.action == ACTION_RETRIEVING) memcpy(action_buffer, "retrieving", 10);
     else if (global_object_state.action == ACTION_FOLLOWING) memcpy(action_buffer, "following", 9);
 
-    snprintf(robot_buffer, 255, "{ \"name\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d } }", DEVICE_NAME, robot_data.pos.x_coord, robot_data.pos.y_coord, action_buffer, 1, tof_data.distance, robot_data.rotation, tof_data.degree);
+    snprintf(robot_buffer, 255, "{ \"name\": \"%s\", \"coords\": [%0.2f, %0.2f], \"action\": \"%s\", \"network\": { \"online\": %d }, \"sensors\": { \"tof_sensor\": %d, \"magneto\": %d, \"servo\": %d }, \"motors\": [ %d, %d ] }", DEVICE_NAME, robot_data.pos.x_coord, robot_data.pos.y_coord, action_buffer, 1, tof_data.distance, robot_data.rotation, tof_data.degree, motor1_data.i_run, motor2_data.i_run);
 
     xQueueSend(mqtt_data_queue, robot_buffer, 10);
   }
 
-  // Update slam map
-  update_map(slam_tof_data, slam_pos_data, tsp, psp);
-  upload_map();
+  if (!turning_left && !turning_right) {
+    // Update slam map
+    update_map(slam_tof_data, slam_pos_data, tsp, psp);
+    upload_map();
+  }
 }
